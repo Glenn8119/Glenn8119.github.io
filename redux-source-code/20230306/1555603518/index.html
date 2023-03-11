@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 5.4.2">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.png">
+  <link rel="mask-icon" href="/images/favicon" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css" integrity="sha256-/4UQcSmErDzPCMAiuOiWPVVsNN2s3ZY/NsmXNcj0IFc=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"glenote.com","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.15.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"width":300},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜尋...","empty":"我們無法找到任何有關 ${query} 的搜索結果","hits_time":"${hits} 找到 ${time} 個結果","hits":"找到 ${hits} 個結果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="&amp;emsp;&amp;emsp;在聊 applyMiddleware 前想先稍微提一下這個方法的脈絡，我當初直接看這個方法時整個是一頭霧水，在好好爬了一遍官方文件後才覺得有比較理解，而我認為先了解 enhancer 以及 middleware 會比較好瞭解這整個方法，但如果已經很熟悉的話可以直接跳到第三部分看原始碼。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="理解 Redux 原始碼（四）- applyMiddleware">
+<meta property="og:url" content="https://glenote.com/redux-source-code/20230306/1555603518/index.html">
+<meta property="og:site_name" content="Glenn 的網頁開發望遠鏡">
+<meta property="og:description" content="&amp;emsp;&amp;emsp;在聊 applyMiddleware 前想先稍微提一下這個方法的脈絡，我當初直接看這個方法時整個是一頭霧水，在好好爬了一遍官方文件後才覺得有比較理解，而我認為先了解 enhancer 以及 middleware 會比較好瞭解這整個方法，但如果已經很熟悉的話可以直接跳到第三部分看原始碼。">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2023-03-06T21:10:37.000Z">
+<meta property="article:modified_time" content="2023-03-11T09:06:22.204Z">
+<meta property="article:tag" content="Redux">
+<meta property="article:tag" content="source code">
+<meta property="article:tag" content="React">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://glenote.com/redux-source-code/20230306/1555603518/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-TW","comments":true,"permalink":"https://glenote.com/redux-source-code/20230306/1555603518/","path":"redux-source-code/20230306/1555603518/","title":"理解 Redux 原始碼（四）- applyMiddleware"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>理解 Redux 原始碼（四）- applyMiddleware | Glenn 的網頁開發望遠鏡</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切換導航欄" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Glenn 的網頁開發望遠鏡</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Glenn's Web Telescope</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜尋" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首頁</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>關於</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>標籤</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分類</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>歸檔</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目錄
+        </li>
+        <li class="sidebar-nav-overview">
+          本站概要
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E3%80%81enhancer"><span class="nav-number">1.</span> <span class="nav-text">一、enhancer</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%8C%E3%80%81middleware"><span class="nav-number">2.</span> <span class="nav-text">二、middleware</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%89%E3%80%81applyMiddleware"><span class="nav-number">3.</span> <span class="nav-text">三、applyMiddleware</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%B5%90%E8%AA%9E"><span class="nav-number">4.</span> <span class="nav-text">結語</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt=""
+      src="/images/favicon.png">
+  <p class="site-author-name" itemprop="name"></p>
+  <div class="site-description" itemprop="description">嗨！我是 Glenn <br> 自從第一天安裝 VS Code, 我不是在路易莎就是在往路易莎的路上...</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">4</span>
+          <span class="site-state-item-name">文章</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分類</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">標籤</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Glenn8119" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;Glenn8119" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:uuu0622@hotmail.com" title="E-Mail → mailto:uuu0622@hotmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/profile.php?id=100002582555256" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;profile.php?id&#x3D;100002582555256" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-TW">
+    <link itemprop="mainEntityOfPage" href="https://glenote.com/redux-source-code/20230306/1555603518/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/favicon.png">
+      <meta itemprop="name" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glenn 的網頁開發望遠鏡">
+      <meta itemprop="description" content="嗨！我是 Glenn <br> 自從第一天安裝 VS Code, 我不是在路易莎就是在往路易莎的路上...">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="理解 Redux 原始碼（四）- applyMiddleware | Glenn 的網頁開發望遠鏡">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          理解 Redux 原始碼（四）- applyMiddleware
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">發表於</span>
+
+      <time title="創建時間：2023-03-06 21:10:37" itemprop="dateCreated datePublished" datetime="2023-03-06T21:10:37+00:00">2023-03-06</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新於</span>
+      <time title="修改時間：2023-03-11 09:06:22" itemprop="dateModified" datetime="2023-03-11T09:06:22+00:00">2023-03-11</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分類於</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/redux-source-code/" itemprop="url" rel="index"><span itemprop="name">redux-source-code</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="所需閱讀時間">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">所需閱讀時間 &asymp;</span>
+      <span>13 分鐘</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>&emsp;&emsp;在聊 applyMiddleware 前想先稍微提一下這個方法的脈絡，我當初直接看這個方法時整個是一頭霧水，在好好爬了一遍官方文件後才覺得有比較理解，而我認為先了解 <code>enhancer</code> 以及 <code>middleware</code> 會比較好瞭解這整個方法，但如果已經很熟悉的話可以直接跳到第三部分看原始碼。</p>
+<span id="more"></span>
+
+<p>&emsp;&emsp;先看一下在實際使用時的寫法</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123; createStore, applyMiddleware &#125; <span class="keyword">from</span> <span class="string">&#x27;redux&#x27;</span></span><br><span class="line"><span class="keyword">import</span> rootReducer <span class="keyword">from</span> <span class="string">&#x27;./reducer&#x27;</span></span><br><span class="line"><span class="keyword">import</span> &#123; someMiddleware, otherMiddleware &#125; <span class="keyword">from</span> <span class="string">&#x27;./middlewares&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> store = <span class="title function_">createStore</span>(rootReducer, <span class="literal">undefined</span>, <span class="title function_">applyMiddleware</span>(someMiddleware, otherMiddleware))</span><br><span class="line"></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> store</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;看得出 <code>applyMiddleware</code> 帶入 middleware 並呼叫後會返回一個 enhancer 被帶入 createStore，被以 <code>enhancer(createStore)(reducer, preloadedState)</code> 的形式呼叫，那 enhancer 又是什麼？</p>
+<br>
+
+<h1 id="一、enhancer"><a href="#一、enhancer" class="headerlink" title="一、enhancer"></a>一、enhancer</h1><p>&emsp;&emsp;在官網上對於 enhancer 的型別描述是這樣的。</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">type</span> <span class="title class_">StoreEnhancer</span> = <span class="function">(<span class="params">next: StoreCreator</span>) =&gt;</span> <span class="title class_">StoreCreator</span></span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;enhancer 是一個高階函數，接受了一個 <code>createStore</code> 方法做為參數並返回與 <code>createStore</code> 同樣型別的方法，目的是將原本 createStore 內的方法增加或者修改一些功能，看一下官網的兩個 enhancer 的例子</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">const</span> <span class="title function_">sayHiOnDispatch</span> = (<span class="params">createStore</span>) =&gt; &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="function">(<span class="params">rootReducer, preloadedState, enhancers</span>) =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">const</span> store = <span class="title function_">createStore</span>(rootReducer, preloadedState, enhancers)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">function</span> <span class="title function_">newDispatch</span>(<span class="params">action</span>) &#123;</span><br><span class="line">      <span class="keyword">const</span> result = store.<span class="title function_">dispatch</span>(action)</span><br><span class="line">      <span class="variable language_">console</span>.<span class="title function_">log</span>(<span class="string">&#x27;Hi!&#x27;</span>)</span><br><span class="line">      <span class="keyword">return</span> result</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> &#123; ...store, <span class="attr">dispatch</span>: newDispatch &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="title function_">includeMeaningOfLife</span> = (<span class="params">createStore</span>) =&gt; &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="function">(<span class="params">rootReducer, preloadedState, enhancers</span>) =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">const</span> store = <span class="title function_">createStore</span>(rootReducer, preloadedState, enhancers)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">function</span> <span class="title function_">newGetState</span>(<span class="params"></span>) &#123;</span><br><span class="line">      <span class="keyword">return</span> &#123;</span><br><span class="line">        ...store.<span class="title function_">getState</span>(),</span><br><span class="line">        <span class="attr">meaningOfLife</span>: <span class="number">42</span>,</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> &#123; ...store, <span class="attr">getState</span>: newGetState &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;引入時會搭配 compose 將多個 enhancer 結合為一個。</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">const</span> composedEnhancer = <span class="title function_">compose</span>(sayHiOnDispatch, includeMeaningOfLife)</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> store = <span class="title function_">createStore</span>(rootReducer, <span class="literal">undefined</span>, composedEnhancer)</span><br><span class="line"></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> store</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;<code>sayHiOnDispatch</code> 改寫了原本的 dispatch 方法，在呼叫 dispatch 時會 log 出<code>hi</code>，<code>includeMeaningOfLife</code> 則是改寫原本的 getState 方法，使回傳結果多一個 meaningOfLife 的屬性。</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line">store.<span class="title function_">dispatch</span>(&#123; <span class="attr">type</span>: <span class="string">&#x27;todos/todoAdded&#x27;</span>, <span class="attr">payload</span>: <span class="string">&#x27;Learn about actions&#x27;</span> &#125;)</span><br><span class="line"><span class="comment">// log: &#x27;Hi!&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="variable language_">console</span>.<span class="title function_">log</span>(<span class="string">&#x27;State after dispatch: &#x27;</span>, store.<span class="title function_">getState</span>())</span><br><span class="line"><span class="comment">// log: &#123; someState: &#x27;...&#x27; , meaningOfLife: 42&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;因此看得出來 Redux 給了一個相當彈性的入口點，透過 enhancer 在原本的 feature 上另外增添其他的功能。</p>
+<p>&emsp;&emsp;接著再來看看 middleware。</p>
+<br>
+
+<h1 id="二、middleware"><a href="#二、middleware" class="headerlink" title="二、middleware"></a>二、middleware</h1><p>&emsp;&emsp;如果有寫過 server 端邏輯的話對於這個名詞應該不陌生，在真正處理請求之前會先通過一個或多個 middleware 對請求做一些邏輯處理，而 Redux 的 <code>middleware</code> 也是類似的概念，只不過這裡的請求變成了 <code>dispatch</code> 方法。</p>
+<p>&emsp;&emsp;先看看 Redux 的定義。</p>
+<aside>
+💡 A middleware is a higher-order function that composes a dispatch function
+ to return a new dispatch function.
+
+</aside>
+
+<p>&emsp;&emsp;這裡的 <code>compose</code> 就是指 functional programming 中常用到的 compose 技巧，至於如何實作待會會提到，可以先理解為，<code>middleware</code> 接受 dispatch 方法做為參數並返回一個新的 dispatch 方法，通常被用來處理非同步作業，或是實作 logger。</p>
+<p>&emsp;&emsp;而 middleware 有一定的格式，如果想自己寫 custom middleware 的時候必須照著官方格式寫</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="comment">// Middleware written as ES5 functions</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Outer function:</span></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">exampleMiddleware</span>(<span class="params">storeAPI</span>) &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">function</span> <span class="title function_">wrapDispatch</span>(<span class="params">next</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">function</span> <span class="title function_">handleAction</span>(<span class="params">action</span>) &#123;</span><br><span class="line">      <span class="comment">// Do anything here: pass the action onwards with next(action),</span></span><br><span class="line">      <span class="comment">// or restart the pipeline with storeAPI.dispatch(action)</span></span><br><span class="line">      <span class="comment">// Can also use storeAPI.getState() here</span></span><br><span class="line"></span><br><span class="line">      <span class="keyword">return</span> <span class="title function_">next</span>(action)</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;看起來有點嚇人，但是如果拆成兩個部分就比較好理解了。</p>
+<ol>
+<li><code>exampleMiddleware</code></li>
+</ol>
+<p>&emsp;&emsp;<code>exampleMiddleware</code> 在 <code>applyMiddleware</code> 呼叫時就會被呼叫並傳入 storeAPI(也就是 dispatch, getState 方法)，目的是為了讓 custom middleware 內部可以取用到這兩個方法。</p>
+<ol start="2">
+<li><code>wrapDispatch</code></li>
+</ol>
+<p>&emsp;&emsp;這個方法才是真正 middleware 的核心，方法呼叫後會返回一個<code>handleAction</code>方法，而仔細看會發現<code>handleAction</code> 和 dispatch 方法一樣都接受一個 action 做為參數，原來其實<code>handleAction</code>就是包裝後的 dispatch 方法！<code>wrapDispatch</code>接受的參數 <code>next</code> 是下一個 middleware 的 <code>handleAction</code> 方法，而如果已經沒有下一個 middleware 時，<code>next</code> 就是 Redux 提供的 <code>dispatch</code> 方法。</p>
+<p>&emsp;&emsp;為了方便理解可以先想像 <code>applyMiddleware</code> 只帶入一個 middleware 的場景，這時理所當然 <code>next</code> 就是原始的 dispatch 方法，而 <code>wrapDispatch</code> 也是在<code>applyMiddleware</code> 呼叫時就會被呼叫，這時就像 Redux 的定義說的，接受原本的 dispatch 方法做為參數，並且返回一個新的 dispatch 方法 <code>handleAction</code>。</p>
+<p>&emsp;&emsp;雖然這裡盡可能講得不那麼抽象一點，但可能還是有點難理解，接著就看看原始碼裡面 middleware 是如何被處理的吧！</p>
+<br>
+
+<h1 id="三、applyMiddleware"><a href="#三、applyMiddleware" class="headerlink" title="三、applyMiddleware"></a>三、applyMiddleware</h1><p>&emsp;&emsp;有了基本對 enhancer 及 middleware 的了解後就可以來看看 <code>applyMiddleware</code></p>
+<figure class="highlight jsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> compose <span class="keyword">from</span> <span class="string">&#x27;./compose&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> <span class="keyword">function</span> <span class="title function_">applyMiddleware</span>(<span class="params">...middlewares</span>) &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="function"><span class="params">createStore</span> =&gt;</span> <span class="function">(<span class="params">reducer, preloadedState</span>) =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">const</span> store = <span class="title function_">createStore</span>(reducer, preloadedState)</span><br><span class="line">    <span class="keyword">let</span> <span class="title function_">dispatch</span> = (<span class="params"></span>) =&gt; &#123;</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">Error</span>(</span><br><span class="line">        <span class="string">&#x27;Dispatching while constructing your middleware is not allowed. &#x27;</span> +</span><br><span class="line">          <span class="string">&#x27;Other middleware would not be applied to this dispatch.&#x27;</span></span><br><span class="line">      )</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">const</span> middlewareAPI = &#123;</span><br><span class="line">      <span class="attr">getState</span>: store.<span class="property">getState</span>,</span><br><span class="line">      <span class="attr">dispatch</span>: <span class="function">(<span class="params">action, ...args</span>) =&gt;</span> <span class="title function_">dispatch</span>(action, ...args)</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">const</span> chain = middlewares.<span class="title function_">map</span>(<span class="function"><span class="params">middleware</span> =&gt;</span> <span class="title function_">middleware</span>(middlewareAPI))</span><br><span class="line">    dispatch = <span class="title function_">compose</span>(...chain)(store.<span class="property">dispatch</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> &#123;</span><br><span class="line">      ...store,</span><br><span class="line">      dispatch</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;可以看出 <code>applyMiddleware</code> 返回的方法是個非常典型的 enhancer 格式，如果先直接看最後返回的部分可以發現如同稍早說的，這個 enhancer 相當聚焦在改寫 dispatch 方法，接著來看看 enhancer 做了什麼。</p>
+<p>&emsp;&emsp;首先呼叫了 createStore 方法取得 store 物件以方便最後返回時 spread 展開取得其他方法，接著定義 middlewareAPI 讓 middleware 使用，並先用 let 定義一個可修改的 dispatch 方法，如果 dispatch 在建構時就被呼叫會馬上噴錯，拿剛才的 middleware 格式舉例示意如下</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">function</span> <span class="title function_">exampleMiddleware</span>(<span class="params">storeAPI</span>) &#123;</span><br><span class="line">	<span class="comment">// storeAPI.dispatch() -&gt; 噴錯</span></span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">function</span> <span class="title function_">wrapDispatch</span>(<span class="params">next</span>) &#123;</span><br><span class="line">		<span class="comment">// storeAPI.dispatch() -&gt; 噴錯</span></span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">function</span> <span class="title function_">handleAction</span>(<span class="params">action</span>) &#123;</span><br><span class="line">			<span class="comment">// storeAPI.dispatch() -&gt; OK!</span></span><br><span class="line">      <span class="keyword">return</span> <span class="title function_">next</span>(action)</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;接著將所有傳入的 middleware 呼叫一次後放進 <code>chain</code> 陣列，拿剛才的例子來說此時陣列的所有 item 是每個 middleware 的 <code>wrapDispatch</code> 方法，然後將 <code>chain</code> 展開給 compose 當參數呼叫，而這裡我想先稍微說一下 compose 的作用。</p>
+<p>&emsp;&emsp;compose 在 functional programming 中是一個常見的高階函式，作用是接收多個函式作為參數並且組合成一個新的函式，只要一呼叫新的函式便會由右而左呼叫所有被傳入的函示，並將返回的結果傳入下一個函式，例如。</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">const</span> <span class="title function_">f</span> = (<span class="params">x</span>) =&gt; x + <span class="number">5</span></span><br><span class="line"><span class="keyword">const</span> <span class="title function_">g</span> = (<span class="params">x</span>) =&gt; x * <span class="number">3</span></span><br><span class="line"><span class="keyword">const</span> <span class="title function_">h</span> = (<span class="params">x</span>) =&gt; x - <span class="number">2</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> composedFunc = <span class="title function_">compose</span>(f, g, h)</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;此時呼叫 <code>composedFunc</code> 會將參數帶入並由右而左呼叫 h, g, f</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="title function_">composedFunc</span>(<span class="number">4</span>) <span class="comment">// 等於 f(g(h(4))) -&gt; 返回 11</span></span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;大概理解以後來看一下 compose 的原始碼。</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">function</span> <span class="title function_">compose</span>(<span class="params">...funcs</span>) &#123;</span><br><span class="line">  <span class="keyword">if</span> (funcs.<span class="property">length</span> === <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="comment">// infer the argument type so it is usable in inference down the line</span></span><br><span class="line">    <span class="keyword">return</span><span class="function">(<span class="params">arg</span>) =&gt;</span> arg</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (funcs.<span class="property">length</span> === <span class="number">1</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> funcs[<span class="number">0</span>]</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> funcs.<span class="title function_">reduce</span>(</span><br><span class="line">    <span class="function">(<span class="params">a, b</span>) =&gt;</span></span><br><span class="line">      <span class="function">(<span class="params">...args</span>) =&gt;</span></span><br><span class="line">        <span class="title function_">a</span>(<span class="title function_">b</span>(...args))</span><br><span class="line">  )</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;有剛才的例子之後應該會比較好理解，這邊邏輯確實是有點繞，如果不夠清楚可以多看幾次，了解以後就可以回歸到 <code>applyMiddleware</code> 程式碼上</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line">dispatch = <span class="title function_">compose</span>(...chain)(store.<span class="property">dispatch</span>)</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;覺得亂的話先拆兩段看，然後寫白話一點</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">const</span> composedWrapDispatchFunc = <span class="title function_">compose</span>(wrapDispatch1, wrapDispatch2, wrapDispatch3...)</span><br><span class="line">dispatch = <span class="title function_">composedWrapDispatchFunc</span>(store.<span class="property">dispatch</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 實際上做的事情就是...</span></span><br><span class="line"><span class="comment">// dispatch = wrapDispatch1(wrapDispatch2(wrapDispatch3(store.dispatch)))</span></span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;這樣就將所有 middleware 的 <code>wrapDispatch</code> 方法串在一起，並且產生一個新的 dispatch 方法了！</p>
+<p>&emsp;&emsp;然後恭喜有看到這邊的人，<code>applyMiddleware</code> 原始碼到這邊就結束了！</p>
+<p>&emsp;&emsp;如果還是覺得比較抽象的話，可以試著將最常用的 middleware 也就是 redux-thunk 的程式碼帶入看看，這邊我節錄一點 redux-thunk 程式碼並改成範例的格式。</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">function</span> <span class="title function_">middleware</span>(<span class="params">&#123; dispatch, getState &#125;</span>) &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">function</span> <span class="title function_">wrapDispatch</span>(<span class="params">next</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">function</span> <span class="title function_">handleAction</span>(<span class="params">action</span>) &#123;</span><br><span class="line">      <span class="comment">// The thunk middleware looks for any functions that were passed to `store.dispatch`.</span></span><br><span class="line">      <span class="comment">// If this &quot;action&quot; is really a function, call it and return the result.</span></span><br><span class="line">      <span class="keyword">if</span> (<span class="keyword">typeof</span> action === <span class="string">&#x27;function&#x27;</span>) &#123;</span><br><span class="line">        <span class="comment">// Inject the store&#x27;s `dispatch` and `getState` methods, as well as any &quot;extra arg&quot;</span></span><br><span class="line">        <span class="keyword">return</span> <span class="title function_">action</span>(dispatch, getState, extraArgument)</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="comment">// Otherwise, pass the action down the middleware chain as usual</span></span><br><span class="line">      <span class="keyword">return</span> <span class="title function_">next</span>(action)</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;套用了 redux-thunk 之後，action creator 通常會被寫成這樣的格式</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">function</span> <span class="title function_">fetchPosts</span>(<span class="params"></span>) &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">async</span> <span class="keyword">function</span> <span class="title function_">innerFunction</span>(<span class="params">dispatch, getState</span>) =&gt; &#123;</span><br><span class="line">    <span class="keyword">const</span> posts = <span class="keyword">await</span> axios.<span class="title function_">get</span>(<span class="string">&#x27;/posts&#x27;</span>)</span><br><span class="line">    <span class="title function_">dispatch</span>(&#123; <span class="attr">type</span>: <span class="string">&#x27;FETCH_POSTS_SUCCESS&#x27;</span>, <span class="attr">payload</span>: posts &#125;);</span><br><span class="line">  &#125;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;在每次執行 dispatch 時會先判斷 action 型別是 function 時則直接呼叫它，而不是被傳入 dispatch 當作參數，這就也就是在此時呼叫了 <code>innerFunction</code> 執行非同步作業，當裡面的 dispatch 被呼叫時開始下一次的 middleware 循環。</p>
+<br>
+
+<h1 id="結語"><a href="#結語" class="headerlink" title="結語"></a>結語</h1><p>&emsp;&emsp;這篇介紹了 Redux 是如何透過撰寫固定格式的 middleware、enhancer 來擴充 store 內部方法，也提到 applyMiddleware 如何透過 compose 將每個 middleware 串接在一起。</p>
+<p>&emsp;&emsp;老實說當初看到 <code>applyMiddleware</code> 程式碼還高興了一下想說很短應該一下就看完了，結果由於 <code>middleware</code>、<code>enhancer</code> 觀念不熟悉再回官網爬一遍之後才理解(慚愧)，整個看下來反而比 <code>combineReducers</code> 花更久時間理解XD，於是寫這篇文章的方式就有先稍微提到一下這兩個觀念，希望能幫助到剛好有看到這篇文章的人。</p>
+<p>&emsp;&emsp;至此 Redux 中比較常用的方法就介紹完了，其實再探究下去的話還有很多可以聊的東西，像是 react-redux 如何配合 redux 去讓 react 狀態更新後重新渲染，以及為什麼 Redux 一直強調 reducer 必須是 pure function ， redux-devtools-extension 是如何藉這點達成 time-traveling 等等，再追下去真的追不完啊～這些主題有機會研究一下再來和大家分享。</p>
+<p>&emsp;&emsp;另外因為小弟不常寫這樣的文章，如果有什麼不清楚或有誤之處，希望大家也不客氣鞭下去，感激不盡！</p>
+<br>
+<br>
+
+<p>參考文獻</p>
+<p><a target="_blank" rel="noopener" href="https://redux.js.org/tutorials/fundamentals/part-4-store#creating-a-store-with-enhancers">Redux 官方文件</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Redux/" rel="tag"># Redux</a>
+              <a href="/tags/source-code/" rel="tag"># source code</a>
+              <a href="/tags/React/" rel="tag"># React</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/redux-source-code/20230303/4074658977/" rel="prev" title="理解 Redux 原始碼（三）- combineReducers">
+                  <i class="fa fa-chevron-left"></i> 理解 Redux 原始碼（三）- combineReducers
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-react fa-brands"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Glenn Chen</span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="回到頂端">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"Glenn8119/Glenn8119.github.io","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>
