@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 5.4.2">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.png">
+  <link rel="mask-icon" href="/images/favicon" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"glenote.com","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"always","padding":18,"offset":12,"width":300},"hljswrap":true,"copycode":{"enable":false,"style":null},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜尋...","empty":"我們無法找到任何有關 ${query} 的搜索結果","hits_time":"找到 ${hits} 個搜索結果（用時 ${time} 毫秒）","hits":"找到 ${hits} 個搜索結果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="&amp;emsp;&amp;emsp;這篇要來聊的是放在 store 裡面的第一個參數combineReducers，在探究程式碼之前想先聊一下，其實 combineReducers 並不是必須使用的。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="理解 Redux 原始碼（三）- combineReducers">
+<meta property="og:url" content="https://glenote.com/redux-source-code/20230303/4074658977/index.html">
+<meta property="og:site_name" content="Glenn 的網頁開發望遠鏡">
+<meta property="og:description" content="&amp;emsp;&amp;emsp;這篇要來聊的是放在 store 裡面的第一個參數combineReducers，在探究程式碼之前想先聊一下，其實 combineReducers 並不是必須使用的。">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2023-03-03T23:07:57.000Z">
+<meta property="article:modified_time" content="2025-02-02T01:02:40.853Z">
+<meta property="article:tag" content="Redux">
+<meta property="article:tag" content="source code">
+<meta property="article:tag" content="React">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://glenote.com/redux-source-code/20230303/4074658977/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-TW","comments":true,"permalink":"https://glenote.com/redux-source-code/20230303/4074658977/","path":"redux-source-code/20230303/4074658977/","title":"理解 Redux 原始碼（三）- combineReducers"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>理解 Redux 原始碼（三）- combineReducers | Glenn 的網頁開發望遠鏡</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切換導航欄" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Glenn 的網頁開發望遠鏡</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Glenn's Web Telescope</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜尋" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首頁</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>關於</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>標籤</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分類</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>歸檔</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目錄
+        </li>
+        <li class="sidebar-nav-overview">
+          本站概要
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%AD%A3%E6%96%87"><span class="nav-number">1.</span> <span class="nav-text">正文</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A4%87%E8%A3%BD%E4%B8%80%E4%BB%BD-Reducers"><span class="nav-number">1.1.</span> <span class="nav-text">複製一份 Reducers</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%AA%A2%E9%A9%97-reducer"><span class="nav-number">1.2.</span> <span class="nav-text">檢驗 reducer</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BF%94%E5%9B%9E-rootReducer"><span class="nav-number">1.3.</span> <span class="nav-text">返回 rootReducer</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%AA%A2%E6%9F%A5%E6%98%AF%E5%90%A6-state-keys-%E8%88%87-reducerKeys-%E7%9B%B8%E5%91%BC%E6%87%89"><span class="nav-number">1.3.1.</span> <span class="nav-text">檢查是否 state keys 與 reducerKeys 相呼應</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%AF%94%E5%B0%8D%E5%91%BC%E5%8F%AB-reducer-%E7%9A%84%E5%89%8D%E5%BE%8C%E7%8B%80%E6%85%8B"><span class="nav-number">1.3.2.</span> <span class="nav-text">比對呼叫 reducer 的前後狀態</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%B0%8F%E7%B5%90"><span class="nav-number">2.</span> <span class="nav-text">小結</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt=""
+      src="/images/favicon.png">
+  <p class="site-author-name" itemprop="name"></p>
+  <div class="site-description" itemprop="description">嗨！我是 Glenn <br> 自從第一天安裝 VS Code, 我不是在路易莎就是在往路易莎的路上...</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">8</span>
+          <span class="site-state-item-name">文章</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分類</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">標籤</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Glenn8119" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;Glenn8119" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:uuu0622@hotmail.com" title="E-Mail → mailto:uuu0622@hotmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/profile.php?id=100002582555256" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;profile.php?id&#x3D;100002582555256" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-TW">
+    <link itemprop="mainEntityOfPage" href="https://glenote.com/redux-source-code/20230303/4074658977/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/favicon.png">
+      <meta itemprop="name" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glenn 的網頁開發望遠鏡">
+      <meta itemprop="description" content="嗨！我是 Glenn <br> 自從第一天安裝 VS Code, 我不是在路易莎就是在往路易莎的路上...">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="理解 Redux 原始碼（三）- combineReducers | Glenn 的網頁開發望遠鏡">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          理解 Redux 原始碼（三）- combineReducers
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">發表於</span>
+
+      <time title="創建時間：2023-03-03 23:07:57" itemprop="dateCreated datePublished" datetime="2023-03-03T23:07:57+00:00">2023-03-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新於</span>
+      <time title="修改時間：2025-02-02 01:02:40" itemprop="dateModified" datetime="2025-02-02T01:02:40+00:00">2025-02-02</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分類於</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/redux-source-code/" itemprop="url" rel="index"><span itemprop="name">redux-source-code</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="所需閱讀時間">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">所需閱讀時間 &asymp;</span>
+      <span>14 分鐘</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>&emsp;&emsp;這篇要來聊的是放在 store 裡面的第一個參數<code>combineReducers</code>，在探究程式碼之前想先聊一下，其實 <code>combineReducers</code> 並不是必須使用的。</p>
+<span id="more"></span>
+
+
+<p>&emsp;&emsp;<code>combineReducers</code> 回傳的方法和一般的 reducer 方法一樣，都接受 state, action 兩個參數並根據內部邏輯回傳 state，因此只要 reducer 格式正確是可以直接傳入 <code>createStore</code> 裡面的，就像以下的例子。</p>
+<figure class="highlight jsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123; createStore &#125; <span class="keyword">from</span> <span class="string">&#x27;redux&#x27;</span></span><br><span class="line"><span class="keyword">import</span> rootReducer <span class="keyword">from</span> <span class="string">&#x27;./reducer&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="title function_">counterReducer</span> = (<span class="params">state = &#123; keyOne: <span class="number">0</span>, keyTwo: <span class="string">&#x27;string&#x27;</span> &#125;, action</span>) =&gt; &#123;</span><br><span class="line">	<span class="keyword">return</span> state</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> store = <span class="title function_">createStore</span>(counterReducer)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 返回的初始 state 長這樣</span></span><br><span class="line"><span class="comment">// &#123;  </span></span><br><span class="line"><span class="comment">//   keyOne: 0,</span></span><br><span class="line"><span class="comment">//   keyTwo: &#x27;string&#x27;</span></span><br><span class="line"><span class="comment">// &#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;這樣一來就是用一個 reducer 來管理所有的全域狀態，好處是可以隨時拿到 state 裡面所有 key 的值，壞處是當專案規模增大時管理會變困難，到時就需要考慮使用 <code>combineReducers</code>，但這時就要規劃一下要怎麼管理不同的 reducer，因為一旦使用 <code>combineReducers</code> 後每個 reducer 是無法拿到別的 key 值的 state 的。</p>
+<p>&emsp;&emsp;回到使用 combineReducer 的場景</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123; createStore, combineReducers &#125; <span class="keyword">from</span> <span class="string">&#x27;redux&#x27;</span></span><br><span class="line"><span class="keyword">import</span> rootReducer <span class="keyword">from</span> <span class="string">&#x27;./reducer&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="title function_">counterReducer</span> = (<span class="params">state = &#123; keyOne: <span class="number">0</span>, keyTwo: <span class="string">&#x27;string&#x27;</span> &#125;, action</span>) =&gt; &#123;</span><br><span class="line">  <span class="comment">// some logic</span></span><br><span class="line">  <span class="keyword">return</span> state</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="title function_">postReducer</span> = (<span class="params">state = &#123; keyOne: <span class="number">1</span>, keyTwo: <span class="string">&#x27;string2&#x27;</span> &#125;, action</span>) =&gt; &#123;</span><br><span class="line">  <span class="comment">// some logic</span></span><br><span class="line">  <span class="keyword">return</span> state</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> rootReducer = <span class="title function_">combineReducers</span>(&#123;</span><br><span class="line">  <span class="attr">counter</span>: counterReducer,</span><br><span class="line">  <span class="attr">post</span>: postReducer</span><br><span class="line">&#125;)</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> store = <span class="title function_">createStore</span>(rootReducer)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 返回的初始 state 長這樣</span></span><br><span class="line"><span class="comment">// &#123;  </span></span><br><span class="line"><span class="comment">//   counter: &#123;</span></span><br><span class="line"><span class="comment">//     keyOne: 0,</span></span><br><span class="line"><span class="comment">//     keyTwo: &#x27;string&#x27;</span></span><br><span class="line"><span class="comment">//   &#125;,</span></span><br><span class="line"><span class="comment">//   post: &#123;</span></span><br><span class="line"><span class="comment">//     keyOne: 1,</span></span><br><span class="line"><span class="comment">//     keyTwo: &#x27;string2&#x27;</span></span><br><span class="line"><span class="comment">//   &#125;</span></span><br><span class="line"><span class="comment">// &#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;由於狀態被細分為了 counter, post 兩個部分(slice)為了方便說明，以下會用 <code>state slice</code> 來代表每一個 key 值所對應的 state，用 <code>reducer slice</code> 代表每一個 key 值對應的 reducer。</p>
+<br>
+
+<h1 id="正文"><a href="#正文" class="headerlink" title="正文"></a>正文</h1><h2 id="複製一份-Reducers"><a href="#複製一份-Reducers" class="headerlink" title="複製一份 Reducers"></a>複製一份 Reducers</h2><figure class="highlight jsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> <span class="keyword">function</span> <span class="title function_">combineReducers</span>(<span class="params">reducers</span>) &#123;</span><br><span class="line">  <span class="keyword">const</span> reducerKeys = <span class="title class_">Object</span>.<span class="title function_">keys</span>(reducers)</span><br><span class="line">  <span class="keyword">const</span> finalReducers = &#123;&#125;</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; reducerKeys.<span class="property">length</span>; i++) &#123;</span><br><span class="line">    <span class="keyword">const</span> key = reducerKeys[i]</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (process.<span class="property">env</span>.<span class="property">NODE_ENV</span> !== <span class="string">&#x27;production&#x27;</span>) &#123;</span><br><span class="line">      <span class="keyword">if</span> (<span class="keyword">typeof</span> reducers[key] === <span class="string">&#x27;undefined&#x27;</span>) &#123;</span><br><span class="line">        <span class="title function_">warning</span>(<span class="string">`No reducer provided for key &quot;<span class="subst">$&#123;key&#125;</span>&quot;`</span>)</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">typeof</span> reducers[key] === <span class="string">&#x27;function&#x27;</span>) &#123;</span><br><span class="line">      finalReducers[key] = reducers[key]</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">const</span> finalReducerKeys = <span class="title class_">Object</span>.<span class="title function_">keys</span>(finalReducers)</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;一開始主要在處理型別檢查及過濾。用 <code>Object.keys</code> 方法將 keys 抓出來，並新增一個 <code>finalReducers</code> 變數將 <code>reducers</code> 遍歷且複製進來，並在同時檢查如果有缺少 <code>reducer slice</code>，如果在 production 以外的環境就給予警告，最後再過濾掉型別不正確的 <code>reducer slice</code>，將過濾後結果的 key 抓出來放到 <code>finalReducerKeys</code> 變數裡。</p>
+<br>
+
+<h2 id="檢驗-reducer"><a href="#檢驗-reducer" class="headerlink" title="檢驗 reducer"></a>檢驗 reducer</h2><figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">let</span> shapeAssertionError</span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">  <span class="title function_">assertReducerShape</span>(finalReducers)</span><br><span class="line">&#125; <span class="keyword">catch</span> (e) &#123;</span><br><span class="line">  shapeAssertionError = e</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;接著先看這段 code，將 <code>finalReducers</code> 帶入 <code>assertReducerShape</code> 去呼叫並做了一個 try cache，來看看 <code>assertReducerShape</code> 在做什麼。</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">function</span> <span class="title function_">assertReducerShape</span>(<span class="params">reducers</span>) &#123;</span><br><span class="line">  <span class="title class_">Object</span>.<span class="title function_">keys</span>(reducers).<span class="title function_">forEach</span>(<span class="function">(<span class="params">key</span>) =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">const</span> reducer = reducers[key]</span><br><span class="line">    <span class="keyword">const</span> initialState = <span class="title function_">reducer</span>(<span class="literal">undefined</span>, &#123; <span class="attr">type</span>: <span class="title class_">ActionTypes</span>.<span class="property">INIT</span> &#125;)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">typeof</span> initialState === <span class="string">&#x27;undefined&#x27;</span>) &#123;</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">Error</span>(</span><br><span class="line">        <span class="string">`The slice reducer for key &quot;<span class="subst">$&#123;key&#125;</span>&quot; returned undefined during initialization. `</span> +</span><br><span class="line">          <span class="string">`If the state passed to the reducer is undefined, you must `</span> +</span><br><span class="line">          <span class="string">`explicitly return the initial state. The initial state may `</span> +</span><br><span class="line">          <span class="string">`not be undefined. If you don&#x27;t want to set a value for this reducer, `</span> +</span><br><span class="line">          <span class="string">`you can use null instead of undefined.`</span></span><br><span class="line">      )</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (</span><br><span class="line">      <span class="keyword">typeof</span> <span class="title function_">reducer</span>(<span class="literal">undefined</span>, &#123;</span><br><span class="line">        <span class="attr">type</span>: <span class="title class_">ActionTypes</span>.<span class="title function_">PROBE_UNKNOWN_ACTION</span>(),</span><br><span class="line">      &#125;) === <span class="string">&#x27;undefined&#x27;</span></span><br><span class="line">    ) &#123;</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">Error</span>(</span><br><span class="line">        <span class="string">`The slice reducer for key &quot;<span class="subst">$&#123;key&#125;</span>&quot; returned undefined when probed with a random type. `</span> +</span><br><span class="line">          <span class="string">`Don&#x27;t try to handle &#x27;<span class="subst">$&#123;ActionTypes.INIT&#125;</span>&#x27; or other actions in &quot;redux/*&quot; `</span> +</span><br><span class="line">          <span class="string">`namespace. They are considered private. Instead, you must return the `</span> +</span><br><span class="line">          <span class="string">`current state for any unknown actions, unless it is undefined, `</span> +</span><br><span class="line">          <span class="string">`in which case you must return the initial state, regardless of the `</span> +</span><br><span class="line">          <span class="string">`action type. The initial state may not be undefined, but can be null.`</span></span><br><span class="line">      )</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;將參數遍歷一次，把裡面將每個 reducer 的 <code>state</code> 參數都帶入 undefined 與 <code>action</code> 參數帶入包含亂數的 type 的物件並呼叫兩次，這樣做確認 user 的每個 <code>reducer slice</code> 都有正確帶入預設的 state 值，並且即便遇到未知的 action type 也能返回一個 state。</p>
+<p>&emsp;&emsp;而呼叫兩次正是在模擬<code>初始化狀態</code>以及<code>後續呼叫 dispatch</code> 這兩個環節都沒有問題。</p>
+<p>&emsp;&emsp;於是整段的重點在於檢驗 reducer 功能正常，如有錯誤就先抓出來存到 <code>shapeAssertionError</code> 變數中等後續拋出。</p>
+<br>
+
+<h2 id="返回-rootReducer"><a href="#返回-rootReducer" class="headerlink" title="返回 rootReducer"></a>返回 rootReducer</h2><figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="comment">// This is used to make sure we don&#x27;t warn about the same</span></span><br><span class="line"><span class="comment">// keys multiple times.</span></span><br><span class="line"><span class="keyword">let</span> unexpectedKeyCache</span><br><span class="line"><span class="keyword">if</span> (process.<span class="property">env</span>.<span class="property">NODE_ENV</span> !== <span class="string">&#x27;production&#x27;</span>) &#123;</span><br><span class="line">  unexpectedKeyCache = &#123;&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">return</span> <span class="keyword">function</span> <span class="title function_">combination</span>(<span class="params">state = &#123;&#125;, action</span>) &#123;</span><br><span class="line">  <span class="keyword">if</span> (shapeAssertionError) &#123;</span><br><span class="line">    <span class="keyword">throw</span> shapeAssertionError</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (process.<span class="property">env</span>.<span class="property">NODE_ENV</span> !== <span class="string">&#x27;production&#x27;</span>) &#123;</span><br><span class="line">    <span class="keyword">const</span> warningMessage = <span class="title function_">getUnexpectedStateShapeWarningMessage</span>(</span><br><span class="line">      state,</span><br><span class="line">      finalReducers,</span><br><span class="line">      action,</span><br><span class="line">      unexpectedKeyCache</span><br><span class="line">    )</span><br><span class="line">    <span class="keyword">if</span> (warningMessage) &#123;</span><br><span class="line">      <span class="title function_">warning</span>(warningMessage)</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">//...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;最後返回的結果是一個 combination 方法，一般被稱為 <code>rootReducer</code> ，也就是在上一篇中提到呼叫 dispatch 時會被呼叫的 <code>currentReducer</code> ，每當在 dispatch 呼叫時若剛才檢驗 <code>reducer slice</code> 的 <code>assertReducerShape</code> 有拋錯的話就會在這邊被丟出。</p>
+<br>
+
+<h3 id="檢查是否-state-keys-與-reducerKeys-相呼應"><a href="#檢查是否-state-keys-與-reducerKeys-相呼應" class="headerlink" title="檢查是否 state keys 與 reducerKeys 相呼應"></a>檢查是否 state keys 與 reducerKeys 相呼應</h3><p>&emsp;&emsp;若沒拋錯會先執行 <code>getUnexpectedStateShapeWarningMessage</code> ，看一下這邊在做什麼</p>
+<figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">function</span> <span class="title function_">getUnexpectedStateShapeWarningMessage</span>(<span class="params"></span></span><br><span class="line"><span class="params">  inputState,</span></span><br><span class="line"><span class="params">  reducers,</span></span><br><span class="line"><span class="params">  action,</span></span><br><span class="line"><span class="params">  unexpectedKeyCache</span></span><br><span class="line"><span class="params"></span>) &#123;</span><br><span class="line">  <span class="keyword">const</span> reducerKeys = <span class="title class_">Object</span>.<span class="title function_">keys</span>(reducers)</span><br><span class="line">  <span class="keyword">const</span> argumentName =</span><br><span class="line">    action &amp;&amp; action.<span class="property">type</span> === <span class="title class_">ActionTypes</span>.<span class="property">INIT</span></span><br><span class="line">      ? <span class="string">&#x27;preloadedState argument passed to createStore&#x27;</span></span><br><span class="line">      : <span class="string">&#x27;previous state received by the reducer&#x27;</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (reducerKeys.<span class="property">length</span> === <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> (</span><br><span class="line">      <span class="string">&#x27;Store does not have a valid reducer. Make sure the argument passed &#x27;</span> +</span><br><span class="line">      <span class="string">&#x27;to combineReducers is an object whose values are reducers.&#x27;</span></span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!<span class="title function_">isPlainObject</span>(inputState)) &#123;</span><br><span class="line">    <span class="keyword">return</span> (</span><br><span class="line">      <span class="string">`The <span class="subst">$&#123;argumentName&#125;</span> has unexpected type of &quot;<span class="subst">$&#123;kindOf(</span></span></span><br><span class="line"><span class="subst"><span class="string">        inputState</span></span></span><br><span class="line"><span class="subst"><span class="string">      )&#125;</span>&quot;. Expected argument to be an object with the following `</span> +</span><br><span class="line">      <span class="string">`keys: &quot;<span class="subst">$&#123;reducerKeys.join(<span class="string">&#x27;&quot;, &quot;&#x27;</span>)&#125;</span>&quot;`</span></span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> unexpectedKeys = <span class="title class_">Object</span>.<span class="title function_">keys</span>(inputState).<span class="title function_">filter</span>(</span><br><span class="line">    <span class="function">(<span class="params">key</span>) =&gt;</span> !reducers.<span class="title function_">hasOwnProperty</span>(key) &amp;&amp; !unexpectedKeyCache[key]</span><br><span class="line">  )</span><br><span class="line"></span><br><span class="line">  unexpectedKeys.<span class="title function_">forEach</span>(<span class="function">(<span class="params">key</span>) =&gt;</span> &#123;</span><br><span class="line">    unexpectedKeyCache[key] = <span class="literal">true</span></span><br><span class="line">  &#125;)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (action &amp;&amp; action.<span class="property">type</span> === <span class="title class_">ActionTypes</span>.<span class="property">REPLACE</span>) <span class="keyword">return</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (unexpectedKeys.<span class="property">length</span> &gt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> (</span><br><span class="line">      <span class="string">`Unexpected <span class="subst">$&#123;unexpectedKeys.length &gt; <span class="number">1</span> ? <span class="string">&#x27;keys&#x27;</span> : <span class="string">&#x27;key&#x27;</span>&#125;</span> `</span> +</span><br><span class="line">      <span class="string">`&quot;<span class="subst">$&#123;unexpectedKeys.join(<span class="string">&#x27;&quot;, &quot;&#x27;</span>)&#125;</span>&quot; found in <span class="subst">$&#123;argumentName&#125;</span>. `</span> +</span><br><span class="line">      <span class="string">`Expected to find one of the known reducer keys instead: `</span> +</span><br><span class="line">      <span class="string">`&quot;<span class="subst">$&#123;reducerKeys.join(<span class="string">&#x27;&quot;, &quot;&#x27;</span>)&#125;</span>&quot;. Unexpected keys will be ignored.`</span></span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;這段的大意是，由於 <code>rootReducer</code> 不會只被呼叫一次，Redux 要確保每次呼叫時 reducerKeys 與 state 的 keys 都能夠對應，如果無法對應則找出是哪些 key 不一樣並發出警告。</p>
+<p>&emsp;&emsp;另外由於在呼叫 <code>replaceReducer</code> 方法替換 reducers 時， state 現有的 key 與新的 reducerKeys 確實有可能不一樣，於是就直接 return 不發出警告。</p>
+<p>&emsp;&emsp;而 <code>unexpectedKeyCache</code> 這個變數的作用是拿來紀錄這次 <code>rootReducer</code> 被呼叫時已經出現過的非預期的 key，並避免在後續呼叫時重複拋出警告。</p>
+<br>
+
+<h3 id="比對呼叫-reducer-的前後狀態"><a href="#比對呼叫-reducer-的前後狀態" class="headerlink" title="比對呼叫 reducer 的前後狀態"></a>比對呼叫 reducer 的前後狀態</h3><figure class="highlight tsx"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">return</span> <span class="keyword">function</span> <span class="title function_">combination</span>(<span class="params">state = &#123;&#125;, action</span>) &#123;</span><br><span class="line">	<span class="comment">//...</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">let</span> hasChanged = <span class="literal">false</span></span><br><span class="line">  <span class="keyword">const</span> nextState = &#123;&#125;</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; finalReducerKeys.<span class="property">length</span>; i++) &#123;</span><br><span class="line">    <span class="keyword">const</span> key = finalReducerKeys[i]</span><br><span class="line">    <span class="keyword">const</span> reducer = finalReducers[key]</span><br><span class="line">    <span class="keyword">const</span> previousStateForKey = state[key]</span><br><span class="line">    <span class="keyword">const</span> nextStateForKey = <span class="title function_">reducer</span>(previousStateForKey, action)</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">typeof</span> nextStateForKey === <span class="string">&#x27;undefined&#x27;</span>) &#123;</span><br><span class="line">      <span class="keyword">const</span> actionType = action &amp;&amp; action.<span class="property">type</span></span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">Error</span>(</span><br><span class="line">        <span class="string">`When called with an action of type <span class="subst">$&#123;</span></span></span><br><span class="line"><span class="subst"><span class="string">          actionType ? <span class="string">`&quot;<span class="subst">$&#123;<span class="built_in">String</span>(actionType)&#125;</span>&quot;`</span> : <span class="string">&#x27;(unknown type)&#x27;</span></span></span></span><br><span class="line"><span class="subst"><span class="string">        &#125;</span>, the slice reducer for key &quot;<span class="subst">$&#123;key&#125;</span>&quot; returned undefined. `</span> +</span><br><span class="line">          <span class="string">`To ignore an action, you must explicitly return the previous state. `</span> +</span><br><span class="line">          <span class="string">`If you want this reducer to hold no value, you can return null instead of undefined.`</span></span><br><span class="line">      )</span><br><span class="line">    &#125;</span><br><span class="line">    nextState[key] = nextStateForKey</span><br><span class="line">    hasChanged = hasChanged || nextStateForKey !== previousStateForKey</span><br><span class="line">  &#125;</span><br><span class="line">  hasChanged =</span><br><span class="line">    hasChanged || finalReducerKeys.<span class="property">length</span> !== <span class="title class_">Object</span>.<span class="title function_">keys</span>(state).<span class="property">length</span></span><br><span class="line">  <span class="keyword">return</span> hasChanged ? nextState : state</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;先說明一下變數的意義</p>
+<p><code>hasChange</code> 是紀錄前後狀態是否相等的 flag</p>
+<p><code>previousStateForKey</code> 是指呼叫對應的 reducer slice <code>之前的 state slice</code></p>
+<p><code>nextStateForKey</code> 是指呼叫對應的 reducer slice <code>之後的 state slice</code></p>
+<p><code>nextState</code> 是一個收集所有 <code>nextStateForKey</code> 的值的物件</p>
+<p>&emsp;&emsp;這段主要在做的事情是，迴圈呼叫每個 <code>reducer slice</code>，並且去比較呼叫前後的 <code>state slice</code> 是否有不同，只要有任何一個 slice 結果不同則 <code>hasChanged</code> 會改為 true，代表最後必須要返回 <code>nextState</code> ，相反地如果迴圈跑完沒有發現不同的話，則返回原本的 state 就好。</p>
+<p>&emsp;&emsp;值得注意的地方是，比較的方法是用 <code>nextStateForKey !== previousStateForKey</code> 來確認，這也是為什麼 Redux 強調不應該直接在 reducer 內 mutate state，因為這樣會比較不出 state 的差異而永遠返回舊的 state 造成沒有渲染的問題。</p>
+<p>&emsp;&emsp;這是一個為了增進效能帶來的限制，如果遞迴比較每一層的話當然就不用在意 immutable 的問題，但試想每次呼叫 dispatch 時都要將所有 reducer slice 跑一次並且遞迴比較所有的 state slice，那會將時間複雜度(效能)大大的提高啊~</p>
+<br>
+
+<h1 id="小結"><a href="#小結" class="headerlink" title="小結"></a>小結</h1><p>&emsp;&emsp;在探討 combineReducers 後知道它做了幾件事情</p>
+<ol>
+<li>檢查 user 傳入的 reducer slice 能否在遇到未知的 action type 時以及 state 為 undefined 時仍正常運作</li>
+<li>確保初始化及後續呼叫 dispatch 時 reducer 都能正常運作</li>
+<li>返回 rootReducer，在每次 dispatch 呼叫時比對前後狀態是否相等，若不相等才會返回新的 state</li>
+</ol>
+<p>&emsp;&emsp;同時也了解了比較狀態是用 <code>nextStateForKey !== previousStateForKey</code> 的方式，也因此 Redux 才強調 immutable 的概念。</p>
+<p>&emsp;&emsp;下一篇會透過看 applyMiddleware 的內容了解 middleware 是如何幫助 user 達成特定目的的。</p>
+<br>
+<br>
+參考文獻
+
+<p><a target="_blank" rel="noopener" href="https://redux.js.org/">Redux 官方文件</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Redux/" rel="tag"># Redux</a>
+              <a href="/tags/source-code/" rel="tag"># source code</a>
+              <a href="/tags/React/" rel="tag"># React</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/redux-source-code/20230301/230517463/" rel="prev" title="理解 Redux 原始碼（二）- createStore">
+                  <i class="fa fa-angle-left"></i> 理解 Redux 原始碼（二）- createStore
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/redux-source-code/20230306/1555603518/" rel="next" title="理解 Redux 原始碼（四）- applyMiddleware">
+                  理解 Redux 原始碼（四）- applyMiddleware <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-react fa-brands"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">Glenn Chen</span>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="回到頂端">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"Glenn8119/Glenn8119.github.io","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

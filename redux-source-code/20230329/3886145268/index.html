@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 5.4.2">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.png">
+  <link rel="mask-icon" href="/images/favicon" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha256-dABdfBfUoC8vJUBOwGVdm8L9qlMWaHTIfXt+7GnZCIo=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"glenote.com","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.22.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"always","padding":18,"offset":12,"width":300},"hljswrap":true,"copycode":{"enable":false,"style":null},"fold":{"enable":false,"height":500},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜尋...","empty":"我們無法找到任何有關 ${query} 的搜索結果","hits_time":"找到 ${hits} 個搜索結果（用時 ${time} 毫秒）","hits":"找到 ${hits} 個搜索結果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="&amp;emsp;&amp;emsp;在讀完 Redux 後就很好奇 React-Redux 是如何搭配 Redux 觸發元件在呼叫 dispatch 後達到重新渲染的，去了解後發現目前版本是用一個 useSyncExternalStore hook 來實現，也就是本篇的主角，於是就突發奇想想用之前所學去寫一個非常陽春的 Redux store （當然要直接抓 Redux 下來用也OK，自己寫純粹是想練習）並搭">
+<meta property="og:type" content="article">
+<meta property="og:title" content="理解 Redux 原始碼（番外篇）- 用 useSyncExternalStore hook 讓一個陽春版的 redux store 與元件同步">
+<meta property="og:url" content="https://glenote.com/redux-source-code/20230329/3886145268/index.html">
+<meta property="og:site_name" content="Glenn 的網頁開發望遠鏡">
+<meta property="og:description" content="&amp;emsp;&amp;emsp;在讀完 Redux 後就很好奇 React-Redux 是如何搭配 Redux 觸發元件在呼叫 dispatch 後達到重新渲染的，去了解後發現目前版本是用一個 useSyncExternalStore hook 來實現，也就是本篇的主角，於是就突發奇想想用之前所學去寫一個非常陽春的 Redux store （當然要直接抓 Redux 下來用也OK，自己寫純粹是想練習）並搭">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2023-03-29T21:29:32.000Z">
+<meta property="article:modified_time" content="2025-02-02T01:02:40.853Z">
+<meta property="article:tag" content="Redux">
+<meta property="article:tag" content="useSyncExternalStore">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://glenote.com/redux-source-code/20230329/3886145268/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-TW","comments":true,"permalink":"https://glenote.com/redux-source-code/20230329/3886145268/","path":"redux-source-code/20230329/3886145268/","title":"理解 Redux 原始碼（番外篇）- 用 useSyncExternalStore hook 讓一個陽春版的 redux store 與元件同步"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>理解 Redux 原始碼（番外篇）- 用 useSyncExternalStore hook 讓一個陽春版的 redux store 與元件同步 | Glenn 的網頁開發望遠鏡</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切換導航欄" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Glenn 的網頁開發望遠鏡</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Glenn's Web Telescope</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜尋" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首頁</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>關於</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>標籤</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分類</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>歸檔</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目錄
+        </li>
+        <li class="sidebar-nav-overview">
+          本站概要
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#useSyncExternalStore-%E7%94%A8%E6%B3%95"><span class="nav-number">1.</span> <span class="nav-text">useSyncExternalStore 用法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#useSyncExternalStore-subscribe-getSnapshot-getServerSnapshot"><span class="nav-number">1.1.</span> <span class="nav-text">useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot?)</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AF%A6%E4%BD%9C-Redux"><span class="nav-number">2.</span> <span class="nav-text">實作 Redux</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt=""
+      src="/images/favicon.png">
+  <p class="site-author-name" itemprop="name"></p>
+  <div class="site-description" itemprop="description">嗨！我是 Glenn <br> 自從第一天安裝 VS Code, 我不是在路易莎就是在往路易莎的路上...</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">8</span>
+          <span class="site-state-item-name">文章</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分類</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">標籤</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Glenn8119" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;Glenn8119" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:uuu0622@hotmail.com" title="E-Mail → mailto:uuu0622@hotmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/profile.php?id=100002582555256" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;profile.php?id&#x3D;100002582555256" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-TW">
+    <link itemprop="mainEntityOfPage" href="https://glenote.com/redux-source-code/20230329/3886145268/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/favicon.png">
+      <meta itemprop="name" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glenn 的網頁開發望遠鏡">
+      <meta itemprop="description" content="嗨！我是 Glenn <br> 自從第一天安裝 VS Code, 我不是在路易莎就是在往路易莎的路上...">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="理解 Redux 原始碼（番外篇）- 用 useSyncExternalStore hook 讓一個陽春版的 redux store 與元件同步 | Glenn 的網頁開發望遠鏡">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          理解 Redux 原始碼（番外篇）- 用 useSyncExternalStore hook 讓一個陽春版的 redux store 與元件同步
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">發表於</span>
+
+      <time title="創建時間：2023-03-29 21:29:32" itemprop="dateCreated datePublished" datetime="2023-03-29T21:29:32+00:00">2023-03-29</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新於</span>
+      <time title="修改時間：2025-02-02 01:02:40" itemprop="dateModified" datetime="2025-02-02T01:02:40+00:00">2025-02-02</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分類於</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/redux-source-code/" itemprop="url" rel="index"><span itemprop="name">redux-source-code</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="所需閱讀時間">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">所需閱讀時間 &asymp;</span>
+      <span>11 分鐘</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>&emsp;&emsp;在讀完 Redux 後就很好奇 React-Redux 是如何搭配 Redux 觸發元件在呼叫 dispatch 後達到重新渲染的，去了解後發現目前版本是用一個 <code>useSyncExternalStore</code> hook 來實現，也就是本篇的主角，於是就突發奇想想用之前所學去寫一個非常陽春的 Redux store （當然要直接抓 Redux 下來用也OK，自己寫純粹是想練習）並搭配這個 hook 來做出類 React-Redux 的感覺(但當然 React-Redux 沒有這麼簡單)，所以這篇會先介紹該 hook 基本的用法後，仿刻一個 Redux 當作外部的 store 寫一個簡單的例子。</p>
+<span id="more"></span>
+
+<br>
+
+
+<h2 id="useSyncExternalStore-用法"><a href="#useSyncExternalStore-用法" class="headerlink" title="useSyncExternalStore 用法"></a>useSyncExternalStore 用法</h2><p>&emsp;&emsp;React 元件重新渲染機制會仰賴 <code>state</code>, <code>props</code> 或 <code>context</code>，有時也會需要仰賴由外部管理的第三方 store，這時候 <code>useSyncExternalStore</code> 就是個很好的入口。</p>
+<br>
+
+
+<h3 id="useSyncExternalStore-subscribe-getSnapshot-getServerSnapshot"><a href="#useSyncExternalStore-subscribe-getSnapshot-getServerSnapshot" class="headerlink" title="useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot?)"></a>useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot?)</h3><p><code>useSyncExternalStore</code> 是 React18 出現的 hook，接受兩個必填參數</p>
+<ul>
+<li><code>subscribe</code> - 外部 store 的訂閱函式，且 store 更新時必須呼叫被訂閱的函式，React 會讓元件本身被這個函式訂閱，從而在 store 更新時達到 rerender。</li>
+<li><code>getSnapShot</code> - 返回 store 內部的資料，用 redux 來舉例的話就是 store.getState 函式，如果 store 更新前後返回的值一樣的話(用 <code>Object.is</code> 比較)不 rerender，不同才 rerender。</li>
+<li><code>getServerSnapshot</code> - optional，返回 store 的初始快照，只在 SSR 場景使用這裡暫不討論。</li>
+</ul>
+<p>&emsp;&emsp;先看官網上的例子可以比較好理解，這個例子讓 <code>TodosApp</code> 元件訂閱一個外部的 <code>todoStore</code>，元件隨著 <code>todoStore</code> 狀態因呼叫 <code>todosStore.addTodo()</code> 更新而重新渲染</p>
+<figure class="highlight jsx"><table><tr><td class="code"><pre><span class="line"><span class="comment">// App.js</span></span><br><span class="line"><span class="keyword">import</span> &#123; useSyncExternalStore &#125; <span class="keyword">from</span> <span class="string">&#x27;react&#x27;</span>;</span><br><span class="line"><span class="keyword">import</span> &#123; todosStore &#125; <span class="keyword">from</span> <span class="string">&#x27;./todoStore.js&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> <span class="keyword">function</span> <span class="title function_">TodosApp</span>(<span class="params"></span>) &#123;</span><br><span class="line">  <span class="keyword">const</span> todos = <span class="title function_">useSyncExternalStore</span>(todosStore.<span class="property">subscribe</span>, todosStore.<span class="property">getSnapshot</span>);</span><br><span class="line">  <span class="keyword">return</span> (</span><br><span class="line">    <span class="language-xml"><span class="tag">&lt;&gt;</span></span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;<span class="name">button</span> <span class="attr">onClick</span>=<span class="string">&#123;()</span> =&gt;</span> todosStore.addTodo()&#125;&gt;Add todo<span class="tag">&lt;/<span class="name">button</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;<span class="name">hr</span> /&gt;</span></span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;<span class="name">ul</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">        &#123;todos.map(todo =&gt; (</span></span><br><span class="line"><span class="language-xml">          <span class="tag">&lt;<span class="name">li</span> <span class="attr">key</span>=<span class="string">&#123;todo.id&#125;</span>&gt;</span>&#123;todo.text&#125;<span class="tag">&lt;/<span class="name">li</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">        ))&#125;</span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;/<span class="name">ul</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;/&gt;</span></span></span><br><span class="line">  );</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// todoStore.js</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// This is an example of a third-party store</span></span><br><span class="line"><span class="comment">// that you might need to integrate with React.</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// If your app is fully built with React,</span></span><br><span class="line"><span class="comment">// we recommend using React state instead.</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> nextId = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">let</span> todos = [&#123; <span class="attr">id</span>: nextId++, <span class="attr">text</span>: <span class="string">&#x27;Todo #1&#x27;</span> &#125;];</span><br><span class="line"><span class="keyword">let</span> listeners = [];</span><br><span class="line"></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">const</span> todosStore = &#123;</span><br><span class="line">  <span class="title function_">addTodo</span>(<span class="params"></span>) &#123;</span><br><span class="line">    todos = [...todos, &#123; <span class="attr">id</span>: nextId++, <span class="attr">text</span>: <span class="string">&#x27;Todo #&#x27;</span> + nextId &#125;]</span><br><span class="line">    <span class="title function_">emitChange</span>();</span><br><span class="line">  &#125;,</span><br><span class="line">  <span class="title function_">subscribe</span>(<span class="params">listener</span>) &#123;</span><br><span class="line">    listeners = [...listeners, listener];</span><br><span class="line">    <span class="keyword">return</span> <span class="function">() =&gt;</span> &#123;</span><br><span class="line">      listeners = listeners.<span class="title function_">filter</span>(<span class="function"><span class="params">l</span> =&gt;</span> l !== listener);</span><br><span class="line">    &#125;;</span><br><span class="line">  &#125;,</span><br><span class="line">  <span class="title function_">getSnapshot</span>(<span class="params"></span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> todos;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">emitChange</span>(<span class="params"></span>) &#123;</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">let</span> listener <span class="keyword">of</span> listeners) &#123;</span><br><span class="line">    <span class="title function_">listener</span>();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;官網或者<a target="_blank" rel="noopener" href="https://codesandbox.io/s/1wvtxs?file=/App.js&utm_medium=sandpack">這裡</a>都可以動手玩看看，如果在 emitChange 函式 log 出 listener 並呼叫 addTodo 時會看到一個名為 <code>handleStoreChange</code> 的函式，呼叫他就能讓元件重新渲染。</p>
+<p>&emsp;&emsp;而另個例子中讓我覺得讚嘆的地方是 <code>useSyncExternalStore</code> 還能夠追蹤瀏覽器 API 的狀態</p>
+<figure class="highlight jsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123; useSyncExternalStore &#125; <span class="keyword">from</span> <span class="string">&#x27;react&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> <span class="keyword">function</span> <span class="title function_">ChatIndicator</span>(<span class="params"></span>) &#123;</span><br><span class="line">  <span class="keyword">const</span> isOnline = <span class="title function_">useSyncExternalStore</span>(subscribe, getSnapshot);</span><br><span class="line">  <span class="keyword">return</span> <span class="language-xml"><span class="tag">&lt;<span class="name">h1</span>&gt;</span>&#123;isOnline ? &#x27;✅ Online&#x27; : &#x27;❌ Disconnected&#x27;&#125;<span class="tag">&lt;/<span class="name">h1</span>&gt;</span></span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">getSnapshot</span>(<span class="params"></span>) &#123;</span><br><span class="line">  <span class="keyword">return</span> navigator.<span class="property">onLine</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">subscribe</span>(<span class="params">callback</span>) &#123;</span><br><span class="line">  <span class="variable language_">window</span>.<span class="title function_">addEventListener</span>(<span class="string">&#x27;online&#x27;</span>, callback);</span><br><span class="line">  <span class="variable language_">window</span>.<span class="title function_">addEventListener</span>(<span class="string">&#x27;offline&#x27;</span>, callback);</span><br><span class="line">  <span class="keyword">return</span> <span class="function">() =&gt;</span> &#123;</span><br><span class="line">    <span class="variable language_">window</span>.<span class="title function_">removeEventListener</span>(<span class="string">&#x27;online&#x27;</span>, callback);</span><br><span class="line">    <span class="variable language_">window</span>.<span class="title function_">removeEventListener</span>(<span class="string">&#x27;offline&#x27;</span>, callback);</span><br><span class="line">  &#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;<code>navigator.onLine</code> 可以追蹤瀏覽器是否目前有連上網路，而連上線時會觸發 window 的 <code>online</code> 事件，斷線時會觸發 <code>offline</code> 事件，React 就是通過這一點讓元件觸發重新渲染。</p>
+<p>&emsp;&emsp;到此 <code>useSyncExternalStore</code> 的基本用法就比較清楚，接著就來簡單寫一個 Redux store 並套用看看吧！</p>
+<br>
+
+
+<h2 id="實作-Redux"><a href="#實作-Redux" class="headerlink" title="實作 Redux"></a>實作 Redux</h2><p>&emsp;&emsp;先將 <code>dispatch</code>, <code>subscribe</code>, <code>getState</code> 寫出來，因為是陽春版所以省略非常多細節XD，僅留必要的功能，且不要忘記在 <code>createStore</code> 最後呼叫 <code>dispatch</code> 進行初始化。</p>
+<figure class="highlight jsx"><table><tr><td class="code"><pre><span class="line"><span class="comment">// createStore.js</span></span><br><span class="line"><span class="keyword">const</span> <span class="title function_">createStore</span> = (<span class="params">reducer</span>) =&gt; &#123;</span><br><span class="line">  <span class="keyword">let</span> listeners = []</span><br><span class="line">  <span class="keyword">let</span> currentState = &#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> <span class="title function_">dispatch</span> = (<span class="params">action</span>) =&gt; &#123;</span><br><span class="line">    currentState = <span class="title function_">reducer</span>(currentState, action)</span><br><span class="line"></span><br><span class="line">    listeners.<span class="title function_">forEach</span>(<span class="function">(<span class="params">listener</span>) =&gt;</span> <span class="title function_">listener</span>())</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> <span class="title function_">getState</span> = (<span class="params"></span>) =&gt; &#123;</span><br><span class="line">    <span class="keyword">return</span> currentState</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> <span class="title function_">subscribe</span> = (<span class="params">cb</span>) =&gt; &#123;</span><br><span class="line">    <span class="keyword">let</span> isSubscribe = <span class="literal">true</span></span><br><span class="line">    listeners.<span class="title function_">push</span>(cb)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">function</span> <span class="title function_">unsubscribe</span>(<span class="params"></span>) &#123;</span><br><span class="line">      <span class="keyword">if</span> (!isSubscribe) <span class="keyword">return</span></span><br><span class="line">      isSubscribe = <span class="literal">false</span></span><br><span class="line"></span><br><span class="line">      listeners = listeners.<span class="title function_">filter</span>(<span class="function">(<span class="params">listener</span>) =&gt;</span> listener !== cb)</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="title function_">dispatch</span>(&#123;<span class="attr">type</span>: <span class="title class_">Math</span>.<span class="title function_">random</span>()&#125;)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> &#123;</span><br><span class="line">    subscribe,</span><br><span class="line">    getState,</span><br><span class="line">    dispatch</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接著定義 <code>usersReducer</code> 及 <code>counterReducer</code> 並建立 store，而為了要組合兩個 reducer 也寫一個簡單的 <code>combineReducer</code></p>
+<figure class="highlight jsx"><table><tr><td class="code"><pre><span class="line"><span class="comment">// combineReducers.js</span></span><br><span class="line"><span class="keyword">const</span> <span class="title function_">combineReducer</span> = (<span class="params">reducersObj</span>) =&gt; &#123;</span><br><span class="line">  <span class="keyword">const</span> reducersObjKeys = <span class="title class_">Object</span>.<span class="title function_">keys</span>(reducersObj)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">function</span> <span class="title function_">combinedReducer</span>(<span class="params">currentState, action</span>) &#123;</span><br><span class="line">    <span class="keyword">let</span> isStateChanged</span><br><span class="line">    <span class="keyword">let</span> nextState = &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; reducersObjKeys.<span class="property">length</span>; i++) &#123;</span><br><span class="line">      <span class="keyword">const</span> key = reducersObjKeys[i]</span><br><span class="line">      <span class="keyword">const</span> reducer = reducersObj[key]</span><br><span class="line">      <span class="keyword">let</span> prevStateForKey = currentState[key]</span><br><span class="line">      <span class="keyword">let</span> nextStateForKey = <span class="title function_">reducer</span>(prevStateForKey, action)</span><br><span class="line"></span><br><span class="line">      nextState[key] = nextStateForKey</span><br><span class="line">      isStateChanged = isStateChanged || prevStateForKey !== nextStateForKey</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> isStateChanged ? nextState : currentState</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// store.js</span></span><br><span class="line"><span class="keyword">import</span> combineReducer <span class="keyword">from</span> <span class="string">&#x27;./mockRedux/combineReducer&#x27;</span></span><br><span class="line"><span class="keyword">import</span> createStore <span class="keyword">from</span> <span class="string">&#x27;./mockRedux/createStore&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="title function_">counterReducer</span> = (<span class="params">state = &#123;count: <span class="number">0</span>&#125;, action</span>) =&gt; &#123;</span><br><span class="line">  <span class="keyword">switch</span> (action.<span class="property">type</span>) &#123;</span><br><span class="line">    <span class="keyword">case</span> <span class="string">&#x27;increment&#x27;</span>:</span><br><span class="line">      <span class="keyword">return</span> &#123;</span><br><span class="line">        <span class="attr">count</span>: state.<span class="property">count</span> + <span class="number">1</span></span><br><span class="line">      &#125;</span><br><span class="line">    <span class="keyword">case</span> <span class="string">&#x27;decrement&#x27;</span>:</span><br><span class="line">      <span class="keyword">return</span> &#123;</span><br><span class="line">        <span class="attr">count</span>: state.<span class="property">count</span> - <span class="number">1</span></span><br><span class="line">      &#125;</span><br><span class="line">    <span class="attr">default</span>:</span><br><span class="line">      <span class="keyword">return</span> state</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="title function_">userReducer</span> = (<span class="params">state = &#123;users: []&#125;, action</span>) =&gt; &#123;</span><br><span class="line">  <span class="keyword">switch</span> (action.<span class="property">type</span>) &#123;</span><br><span class="line">    <span class="keyword">case</span> <span class="string">&#x27;register&#x27;</span>:</span><br><span class="line">      <span class="keyword">return</span> &#123;</span><br><span class="line">        <span class="attr">users</span>: [...state.<span class="property">users</span>, action.<span class="property">payload</span>]</span><br><span class="line">      &#125;</span><br><span class="line">    <span class="attr">default</span>:</span><br><span class="line">      <span class="keyword">return</span> state</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> combinedReducer = <span class="title function_">combineReducer</span>(&#123;</span><br><span class="line">  <span class="attr">counter</span>: counterReducer,</span><br><span class="line">  <span class="attr">user</span>: userReducer</span><br><span class="line">&#125;)</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> store = <span class="title function_">createStore</span>(combinedReducer)</span><br></pre></td></tr></table></figure>
+
+<p>這樣就大功告成！接著將 <code>User</code> 及 <code>Counter</code> 元件寫出來並呼叫 <code>useSyncExternalStore</code> 傳入 <code>store.subscribe</code> 及 <code>store.getState</code> 即可！</p>
+<figure class="highlight jsx"><table><tr><td class="code"><pre><span class="line"><span class="comment">// Counter.js</span></span><br><span class="line"><span class="keyword">import</span> &#123;useSyncExternalStore&#125; <span class="keyword">from</span> <span class="string">&#x27;react&#x27;</span></span><br><span class="line"><span class="keyword">import</span> store <span class="keyword">from</span> <span class="string">&#x27;./store&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="title function_">Counter</span> = (<span class="params"></span>) =&gt; &#123;</span><br><span class="line">  <span class="keyword">const</span> storeValue = <span class="title function_">useSyncExternalStore</span>(store.<span class="property">subscribe</span>, store.<span class="property">getState</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> <span class="title function_">increment</span> = (<span class="params"></span>) =&gt; &#123;</span><br><span class="line">    store.<span class="title function_">dispatch</span>(&#123;<span class="attr">type</span>: <span class="string">&#x27;increment&#x27;</span>&#125;)</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> <span class="title function_">decrement</span> = (<span class="params"></span>) =&gt; &#123;</span><br><span class="line">    store.<span class="title function_">dispatch</span>(&#123;<span class="attr">type</span>: <span class="string">&#x27;decrement&#x27;</span>&#125;)</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> (</span><br><span class="line">    <span class="language-xml"><span class="tag">&lt;<span class="name">div</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;<span class="name">div</span>&gt;</span>&#123;storeValue.counter.count&#125;<span class="tag">&lt;/<span class="name">div</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;<span class="name">button</span> <span class="attr">onClick</span>=<span class="string">&#123;increment&#125;</span>&gt;</span>increment<span class="tag">&lt;/<span class="name">button</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;<span class="name">button</span> <span class="attr">onClick</span>=<span class="string">&#123;decrement&#125;</span>&gt;</span>decrement<span class="tag">&lt;/<span class="name">button</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;/<span class="name">div</span>&gt;</span></span></span><br><span class="line">  )</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Users.js</span></span><br><span class="line"><span class="keyword">import</span> &#123;useState&#125; <span class="keyword">from</span> <span class="string">&#x27;react&#x27;</span></span><br><span class="line"><span class="keyword">import</span> &#123;useSyncExternalStore&#125; <span class="keyword">from</span> <span class="string">&#x27;react&#x27;</span></span><br><span class="line"><span class="keyword">import</span> store <span class="keyword">from</span> <span class="string">&#x27;./store&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="title function_">Users</span> = (<span class="params"></span>) =&gt; &#123;</span><br><span class="line">  <span class="keyword">const</span> storeValue = <span class="title function_">useSyncExternalStore</span>(store.<span class="property">subscribe</span>, store.<span class="property">getState</span>)</span><br><span class="line">  <span class="keyword">const</span> [input, setInput] = <span class="title function_">useState</span>(<span class="string">&#x27;&#x27;</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> <span class="title function_">register</span> = (<span class="params"></span>) =&gt; &#123;</span><br><span class="line">    store.<span class="title function_">dispatch</span>(&#123;<span class="attr">type</span>: <span class="string">&#x27;register&#x27;</span>, <span class="attr">payload</span>: input&#125;)</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> (</span><br><span class="line">    <span class="language-xml"><span class="tag">&lt;<span class="name">div</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;<span class="name">ul</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">        &#123;storeValue.user.users.map((user, idx) =&gt; (</span></span><br><span class="line"><span class="language-xml">          <span class="tag">&lt;<span class="name">li</span> <span class="attr">key</span>=<span class="string">&#123;idx&#125;</span>&gt;</span>&#123;user&#125;<span class="tag">&lt;/<span class="name">li</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">        ))&#125;</span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;/<span class="name">ul</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;<span class="name">input</span> <span class="attr">value</span>=<span class="string">&#123;input&#125;</span> <span class="attr">onChange</span>=<span class="string">&#123;(e)</span> =&gt;</span> setInput(e.target.value)&#125; /&gt;</span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;<span class="name">button</span> <span class="attr">onClick</span>=<span class="string">&#123;register&#125;</span>&gt;</span>register<span class="tag">&lt;/<span class="name">button</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;/<span class="name">div</span>&gt;</span></span></span><br><span class="line">  )</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// App.js</span></span><br><span class="line"><span class="keyword">import</span> <span class="title class_">Counter</span> <span class="keyword">from</span> <span class="string">&#x27;./Counter&#x27;</span></span><br><span class="line"><span class="keyword">import</span> <span class="title class_">User</span> <span class="keyword">from</span> <span class="string">&#x27;./Users&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">App</span>(<span class="params"></span>) &#123;</span><br><span class="line">  <span class="keyword">return</span> (</span><br><span class="line">    <span class="language-xml"><span class="tag">&lt;<span class="name">div</span> <span class="attr">className</span>=<span class="string">&#x27;App&#x27;</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;<span class="name">Counter</span> /&gt;</span></span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;<span class="name">User</span> /&gt;</span></span></span><br><span class="line"><span class="language-xml">    <span class="tag">&lt;/<span class="name">div</span>&gt;</span></span></span><br><span class="line">  )</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;如果有興趣可以在<a target="_blank" rel="noopener" href="https://github.com/Glenn8119/uSES-Example">這裡</a> clone 下來玩看看。</p>
+<p>&emsp;&emsp;這裡必需補充一下，實際上 <code>React-Redux</code> 並不是像這邊直接把 store 方法抓進 <code>useSyncExternalStore</code> 與元件產生互動的，而是底層有一套邏輯去判斷當 store 改變時，有使用 <code>connect</code> 方法的元件需不需要重複渲染。</p>
+<p>&emsp;&emsp;所以除非想被老闆罵，否則自己沒事千萬不要這麼寫！這麼做會導致只要 store 狀態改變了，所有使用同樣的 store 且呼叫到這個 hook 的元件都會跟著重新渲染，堪稱災難！這種寫法還是自己私底下玩玩就好XD</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Redux/" rel="tag"># Redux</a>
+              <a href="/tags/useSyncExternalStore/" rel="tag"># useSyncExternalStore</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/redux-source-code/20230306/1555603518/" rel="prev" title="理解 Redux 原始碼（四）- applyMiddleware">
+                  <i class="fa fa-angle-left"></i> 理解 Redux 原始碼（四）- applyMiddleware
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/career/20240106/1853441634/" rel="next" title="轉職為前端工程師兩年半的職涯回顧">
+                  轉職為前端工程師兩年半的職涯回顧 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-react fa-brands"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">Glenn Chen</span>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="回到頂端">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"Glenn8119/Glenn8119.github.io","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>
