@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 5.4.2">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.png">
+  <link rel="mask-icon" href="/images/favicon" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"glenote.com","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.26.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"always","padding":18,"offset":12,"width":300},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":false,"style":null},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜尋...","empty":"我們無法找到任何有關 ${query} 的搜索結果","hits_time":"找到 ${hits} 個搜索結果（用時 ${time} 毫秒）","hits":"找到 ${hits} 個搜索結果"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="&amp;emsp;&amp;emsp;最近需要在團隊裡面準備分享有關 prompt engineering 的內容，想起之前在學習 prompt 技巧例如 Multi-shot, Cot 並且應用時，看到語言模型的回應真的照自己想要的方向走的時候覺得十分神奇，雖然使用起來沒問題，但不免還是有點好奇：「為什麼這樣講 LLM 就會那樣回？」，於是趁這個機會想盡量從第一性原理出發，了解一下 prompt 是如何影響模">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Prompt 如何影響 LLM (大型語言模型) 的輸出?">
+<meta property="og:url" content="https://glenote.com/AI/20251209/2734237419/index.html">
+<meta property="og:site_name" content="Glenn 的網頁開發望遠鏡">
+<meta property="og:description" content="&amp;emsp;&amp;emsp;最近需要在團隊裡面準備分享有關 prompt engineering 的內容，想起之前在學習 prompt 技巧例如 Multi-shot, Cot 並且應用時，看到語言模型的回應真的照自己想要的方向走的時候覺得十分神奇，雖然使用起來沒問題，但不免還是有點好奇：「為什麼這樣講 LLM 就會那樣回？」，於是趁這個機會想盡量從第一性原理出發，了解一下 prompt 是如何影響模">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2025-12-09T22:32:08.000Z">
+<meta property="article:modified_time" content="2025-12-16T12:36:02.532Z">
+<meta property="article:tag" content="Prompt Engineering">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="AI">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://glenote.com/AI/20251209/2734237419/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-TW","comments":true,"permalink":"https://glenote.com/AI/20251209/2734237419/","path":"AI/20251209/2734237419/","title":"Prompt 如何影響 LLM (大型語言模型) 的輸出?"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Prompt 如何影響 LLM (大型語言模型) 的輸出? | Glenn 的網頁開發望遠鏡</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切換導航欄" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Glenn 的網頁開發望遠鏡</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Glenn's Web Telescope</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜尋" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首頁</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>關於</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>標籤</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分類</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>歸檔</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目錄
+        </li>
+        <li class="sidebar-nav-overview">
+          本站概要
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#LLM-%E7%9A%84%E6%9C%AC%E8%B3%AA%E8%88%87%E5%AE%9A%E7%BE%A9"><span class="nav-number">1.</span> <span class="nav-text">LLM 的本質與定義</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A6%82%E4%BD%95%E5%81%9A%E5%88%B0-%E5%BE%9E%E8%A8%93%E7%B7%B4%E6%B5%81%E7%A8%8B%E9%96%8B%E5%A7%8B%E8%AA%AA%E8%B5%B7"><span class="nav-number">2.</span> <span class="nav-text">如何做到? 從訓練流程開始說起</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A9%9F%E7%8E%87%E8%88%87%E6%8E%A1%E6%A8%A3%E6%A9%9F%E5%88%B6"><span class="nav-number">3.</span> <span class="nav-text">機率與採樣機制</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B9%BB%E8%A6%BA-Hallucination-%EF%BC%9A%E4%B8%80%E6%9C%AC%E6%AD%A3%E7%B6%93%E5%9C%B0%E8%83%A1%E8%AA%AA%E5%85%AB%E9%81%93"><span class="nav-number">4.</span> <span class="nav-text">幻覺 (Hallucination)：一本正經地胡說八道</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%B5%90%E8%AA%9E"><span class="nav-number">5.</span> <span class="nav-text">結語</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt=""
+      src="/images/favicon.png">
+  <p class="site-author-name" itemprop="name"></p>
+  <div class="site-description" itemprop="description">嗨！我是 Glenn，一名充滿好奇心的全端工程師</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">21</span>
+          <span class="site-state-item-name">文章</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分類</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">標籤</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Glenn8119" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;Glenn8119" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:uuu0622@hotmail.com" title="E-Mail → mailto:uuu0622@hotmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/profile.php?id=100002582555256" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;profile.php?id&#x3D;100002582555256" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-TW">
+    <link itemprop="mainEntityOfPage" href="https://glenote.com/AI/20251209/2734237419/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/favicon.png">
+      <meta itemprop="name" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glenn 的網頁開發望遠鏡">
+      <meta itemprop="description" content="嗨！我是 Glenn，一名充滿好奇心的全端工程師">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Prompt 如何影響 LLM (大型語言模型) 的輸出? | Glenn 的網頁開發望遠鏡">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Prompt 如何影響 LLM (大型語言模型) 的輸出?
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">發表於</span>
+
+      <time title="創建時間：2025-12-09 22:32:08" itemprop="dateCreated datePublished" datetime="2025-12-09T22:32:08+00:00">2025-12-09</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新於</span>
+      <time title="修改時間：2025-12-16 12:36:02" itemprop="dateModified" datetime="2025-12-16T12:36:02+00:00">2025-12-16</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分類於</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/AI/" itemprop="url" rel="index"><span itemprop="name">AI</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="所需閱讀時間">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">所需閱讀時間 &asymp;</span>
+      <span>5 分鐘</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>&emsp;&emsp;最近需要在團隊裡面準備分享有關 prompt engineering 的內容，想起之前在學習 prompt 技巧例如 Multi-shot, Cot 並且應用時，看到語言模型的回應真的照自己想要的方向走的時候覺得十分神奇，雖然使用起來沒問題，但不免還是有點好奇：「為什麼這樣講 LLM 就會那樣回？」，於是趁這個機會想盡量從第一性原理出發，了解一下 prompt 是如何影響模型的輸出。</p>
+<span id="more"></span>
+
+<br />
+
+<h2 id="LLM-的本質與定義"><a href="#LLM-的本質與定義" class="headerlink" title="LLM 的本質與定義"></a>LLM 的本質與定義</h2><p>&emsp;&emsp;大型語言模型（LLM）在本質上是一種專門設計來理解和生成人類語言的人工智慧。簡單來說，它們通過<code>分析大量的文本資料</code>，學習語言的模式、結構與意義。</p>
+<br />
+
+<h2 id="如何做到-從訓練流程開始說起"><a href="#如何做到-從訓練流程開始說起" class="headerlink" title="如何做到? 從訓練流程開始說起"></a><strong>如何做到?</strong> 從訓練流程開始說起</h2><p>要讓模型能夠精準地預測並回應人類需求，通常需要經歷三個階段。這裡用人類學習的過程來做類比：</p>
+<p><strong>第一階段：預訓練 (Pretraining)</strong> </p>
+<p>&emsp;&emsp;在這個階段，模型會吃進超大規模的文本資料（書籍、程式碼、網頁）。訓練任務通常是把句子中的某些字遮擋起來，讓模型去填空。久而久之，它就學會了詞彙、語法、語義以及世界上的常見知識。</p>
+<p>&emsp;&emsp;這個階段就像小孩聆聽了大量的對話，慢慢學會怎麼組出通順的句子，但還不懂得分辨場合說話。</p>
+<p><strong>第二階段：微調 (Fine-tuning)</strong> </p>
+<p>&emsp;&emsp;預訓練完的模型雖然會說話，但往往太過隨意或無法對焦。微調就是給它特定的格式或任務（如：問答、翻譯、寫程式），利用標註好的問題與對應的正確答案資料集再訓練一次。</p>
+<p>&emsp;&emsp;這個階段像是小孩會說話後，父母開始糾正：「別人問你名字時，你要回答名字，而不是開始唱兒歌。」讓它懂得照需求回應。</p>
+<p><strong>第三階段：人類回饋強化學習 (RLHF)</strong> </p>
+<p>&emsp;&emsp;光是微調還不夠，因為<code>正確的答案往往不只一種</code>。這個階段會讓模型生成多個答案，由人類標註員挑選出哪個比較好，並訓練一個獎勵模型來優化 LLM，讓它的回答更貼近人類的偏好與價值觀。</p>
+<p>&emsp;&emsp;這個階段像是小孩學會答題後，還要經過老師的評分與引導，慢慢學會怎樣的回答是有禮貌、有幫助且受歡迎的。</p>
+<br />
+
+<p>&emsp;&emsp;訓練完的模型幾乎就是我們平常互動的 LLM 了，為什麼說幾乎? 因為平常跟 LLM 互動的地方大多都是在模型商提供的應用程式，例如聊天應用 (ChatGPT) 或是 Coding Agent (Claude Code) 等等，而這些應用程式會因為本身定位的需求客製化許多功能，像是加入 Tool、或是有一些預設的 System prompt、Top-P、Top-k 參數等等 (下面會提到)，拋開這些應用層的包裝，底下才是原本那個跟你玩接龍的模型。</p>
+<p>&emsp;&emsp;而在底層運作時，LLM 做的事情其實是<code>預測下一個字（Token）</code>。可以想像成文字接龍，模型在讀取了你給的 Prompt 後，會<code>基於機率</code>計算出最合理的下一個字是什麼，並且再基於這個結果繼續預測下一個字，如此反覆進行直到結束。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">User prompt: &quot;請用繁體中文解釋重力&quot;</span><br><span class="line">↓</span><br><span class="line">模型預測 token 1: &quot;重&quot; (基於 prompt)</span><br><span class="line">↓</span><br><span class="line">模型預測 token 2: &quot;力&quot; (基於 prompt + &quot;重&quot;)</span><br><span class="line">↓</span><br><span class="line">模型預測 token 3: &quot;是&quot; (基於 prompt + &quot;重力&quot;)</span><br><span class="line">↓</span><br><span class="line">... 持續進行</span><br></pre></td></tr></table></figure>
+
+
+<p>&emsp;&emsp;到這就有個疑問，既然模型是基於機率預測下一個字，照理說同樣的輸入應該得到同樣的輸出 (最大機率的字)，但為什麼同樣的 prompt 每次 LLM 產出的結果都不一樣?</p>
+<br />
+
+<h2 id="機率與採樣機制"><a href="#機率與採樣機制" class="headerlink" title="機率與採樣機制"></a>機率與採樣機制</h2><p>&emsp;&emsp;答案在於<strong>採樣策略（Sampling）</strong>。為了讓回答具備多樣性（例如寫作任務），LLM 並不總是選擇機率最高的那個字，而是會根據參數設定引入隨機性。如果使用過像 <a target="_blank" rel="noopener" href="https://platform.claude.com/workbench"><strong>Claude Workbench</strong></a> 這樣的開發者工具，就會看到這幾個關鍵參數：</p>
+<ul>
+<li><strong>Temperature (溫度)：</strong> 調整模型選擇<code>低機率詞彙</code>的傾向。溫度越高，回答越奔放、隨機；溫度越低，回答越保守、穩定。</li>
+<li><strong>Top-P / Top-K：</strong> 限制模型選字的範圍。例如 Top-P 設定 0.9，代表模型只會從累積機率達到 90% 的前幾個候選字中進行抽樣。</li>
+</ul>
+<p>&emsp;&emsp;如果想更近一步了解這些參數，可以參考保哥的優質文章 <a target="_blank" rel="noopener" href="https://blog.miniasp.com/post/2024/05/21/LLM-Temperature-Top-P-Nucleus-Sampling-Top-K"><strong>淺談 LLM 大型語言模型的 Temperature、Top-P 和 Top-K 參數</strong></a></p>
+<br />
+
+<h2 id="幻覺-Hallucination-：一本正經地胡說八道"><a href="#幻覺-Hallucination-：一本正經地胡說八道" class="headerlink" title="幻覺 (Hallucination)：一本正經地胡說八道"></a>幻覺 (Hallucination)：一本正經地胡說八道</h2><p>&emsp;&emsp;理解了「預測下一個字」的機制後，就能理解為什麼會有「幻覺」。</p>
+<p>&emsp;&emsp;由於在訓練資料裡出現的頻率很少，低頻的事實（例如某位冷門歌手的生日、某一天的具體股價）容易出現幻覺，另外，複雜的邏輯推理也容易出現幻覺。</p>
+<p>&emsp;&emsp;模型寧可亂猜也不願意承認自己不確定答案，主要的原因就來自於上面提到的訓練流程，<strong>RLHF</strong> 會針對模型的回答打分數，<code>瞎猜比不作答得分更高</code>，以下來自 OpenAI 與 Anthropic 的文章也都有指出這點：</p>
+<br />
+
+<blockquote>
+<p>語言模型之所以會出現幻覺，是因為標準的訓練和評估流程會獎勵猜測行為，而不是承認不確定答案。</p>
+</blockquote>
+<blockquote>
+<p>假設有個語言模型被問到某人的生日，但它不知道，如果它猜「9 月 10 日」，有 1/365 的機會猜對，但說「不知道」則保證會得零分。</p>
+</blockquote>
+<p><a target="_blank" rel="noopener" href="https://openai.com/zh-Hant/index/why-language-models-hallucinate/">OpenAI - 語言模型為什麼會出現幻覺</a></p>
+<br />
+
+<blockquote>
+<p>At a basic level, language model training incentivizes hallucination: models are always supposed to give a guess for the next word.</p>
+</blockquote>
+<p><a target="_blank" rel="noopener" href="https://www.anthropic.com/research/tracing-thoughts-language-model">Anthropic - Tracing the thoughts of a large language model</a></p>
+<br />
+
+<p>&emsp;&emsp;因此，模型傾向於不管怎樣先生成一個看起來合理的字再說。實務上，為了避免這個問題，我們通常會在 Prompt 中明確要求：「如果你不確定答案，請直接說不知道」，這就是為了對抗模型天生的猜測傾向。</p>
+<h2 id="結語"><a href="#結語" class="headerlink" title="結語"></a>結語</h2><p>&emsp;&emsp;雖然身為非機器學習專業背景還是無法做到太深入的機制探討，但是滿足一下個人的好奇心還是很夠了。</p>
+<p>&emsp;&emsp;我認為 Prompt Engineering 並不只是在玩文字遊戲，它的核心目標是：「透過 Prompt 的設計，最大化 LLM 生成「我想要的 Token」的機率分佈」。我們平常使用的一些 prompt 技巧，其實都是在改變模型當下的上下文，引導它的機率預測路徑，讓它照著你的劇本走。</p>
+<p>&emsp;&emsp;雖然我們不需要成為機器學習專家才能使用 LLM，但了解這些底層機制，能幫助我們在撰寫 Prompt 時更有邏輯，也能在模型「發瘋」時更快理解發生了什麼事。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Prompt-Engineering/" rel="tag"># Prompt Engineering</a>
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+              <a href="/tags/AI/" rel="tag"># AI</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/MongoDB/20250408/3305620083/" rel="prev" title="MongoDB Schema Design Anti Pattern">
+                  <i class="fa fa-angle-left"></i> MongoDB Schema Design Anti Pattern
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/career/20251215/2773959658/" rel="next" title="PyCon 2025 &amp; WebConf 2025 記錄與心得">
+                  PyCon 2025 & WebConf 2025 記錄與心得 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-react fa-brands"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">Glenn Chen</span>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="回到頂端">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"Glenn8119/Glenn8119.github.io","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js" defer></script>
+
+</body>
+</html>

@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 5.4.2">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.png">
+  <link rel="mask-icon" href="/images/favicon" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"glenote.com","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.26.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"always","padding":18,"offset":12,"width":300},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":false,"style":null},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜尋...","empty":"我們無法找到任何有關 ${query} 的搜索結果","hits_time":"找到 ${hits} 個搜索結果（用時 ${time} 毫秒）","hits":"找到 ${hits} 個搜索結果"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="Unbounded Arrays當 array 的 element 數量無止盡的增加，除了會造成 query 效能變差以外，還可能超過 document size 16 MB 的限制">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MongoDB Schema Design Anti Pattern">
+<meta property="og:url" content="https://glenote.com/MongoDB/20250408/3305620083/index.html">
+<meta property="og:site_name" content="Glenn 的網頁開發望遠鏡">
+<meta property="og:description" content="Unbounded Arrays當 array 的 element 數量無止盡的增加，除了會造成 query 效能變差以外，還可能超過 document size 16 MB 的限制">
+<meta property="og:locale" content="zh_TW">
+<meta property="article:published_time" content="2025-04-08T22:03:51.000Z">
+<meta property="article:modified_time" content="2025-12-16T12:36:02.531Z">
+<meta property="article:tag" content="MongoDB">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://glenote.com/MongoDB/20250408/3305620083/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-TW","comments":true,"permalink":"https://glenote.com/MongoDB/20250408/3305620083/","path":"MongoDB/20250408/3305620083/","title":"MongoDB Schema Design Anti Pattern"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>MongoDB Schema Design Anti Pattern | Glenn 的網頁開發望遠鏡</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切換導航欄" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Glenn 的網頁開發望遠鏡</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Glenn's Web Telescope</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜尋" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首頁</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>關於</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>標籤</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分類</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>歸檔</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目錄
+        </li>
+        <li class="sidebar-nav-overview">
+          本站概要
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Unbounded-Arrays"><span class="nav-number">1.</span> <span class="nav-text">Unbounded Arrays</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A6%82%E4%BD%95%E9%81%BF%E5%85%8D%EF%BC%9F"><span class="nav-number">1.1.</span> <span class="nav-text">如何避免？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AF%84%E4%BE%8B"><span class="nav-number">1.2.</span> <span class="nav-text">範例</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Solution"><span class="nav-number">1.3.</span> <span class="nav-text">Solution</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Bloated-Documents"><span class="nav-number">2.</span> <span class="nav-text">Bloated Documents</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Massive-number-of-collections"><span class="nav-number">3.</span> <span class="nav-text">Massive number of collections</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Unnecessary-Indexes"><span class="nav-number">4.</span> <span class="nav-text">Unnecessary Indexes</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Data-Normalization"><span class="nav-number">5.</span> <span class="nav-text">Data Normalization</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#subset-pattern"><span class="nav-number">5.1.</span> <span class="nav-text">subset pattern</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#extended-reference-pattern"><span class="nav-number">5.2.</span> <span class="nav-text">extended reference pattern</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Case-Sensitivity"><span class="nav-number">6.</span> <span class="nav-text">Case-Sensitivity</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt=""
+      src="/images/favicon.png">
+  <p class="site-author-name" itemprop="name"></p>
+  <div class="site-description" itemprop="description">嗨！我是 Glenn，一名充滿好奇心的全端工程師</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">21</span>
+          <span class="site-state-item-name">文章</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分類</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">標籤</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Glenn8119" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;Glenn8119" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:uuu0622@hotmail.com" title="E-Mail → mailto:uuu0622@hotmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/profile.php?id=100002582555256" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;profile.php?id&#x3D;100002582555256" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-TW">
+    <link itemprop="mainEntityOfPage" href="https://glenote.com/MongoDB/20250408/3305620083/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/favicon.png">
+      <meta itemprop="name" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glenn 的網頁開發望遠鏡">
+      <meta itemprop="description" content="嗨！我是 Glenn，一名充滿好奇心的全端工程師">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="MongoDB Schema Design Anti Pattern | Glenn 的網頁開發望遠鏡">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MongoDB Schema Design Anti Pattern
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">發表於</span>
+
+      <time title="創建時間：2025-04-08 22:03:51" itemprop="dateCreated datePublished" datetime="2025-04-08T22:03:51+00:00">2025-04-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新於</span>
+      <time title="修改時間：2025-12-16 12:36:02" itemprop="dateModified" datetime="2025-12-16T12:36:02+00:00">2025-12-16</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分類於</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/MongoDB/" itemprop="url" rel="index"><span itemprop="name">MongoDB</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="所需閱讀時間">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">所需閱讀時間 &asymp;</span>
+      <span>11 分鐘</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="Unbounded-Arrays"><a href="#Unbounded-Arrays" class="headerlink" title="Unbounded Arrays"></a>Unbounded Arrays</h2><p>當 array 的 element 數量無止盡的增加，除了會造成 query 效能變差以外，還可能超過 document size 16 MB 的限制</p>
+<span id="more"></span>
+
+<h3 id="如何避免？"><a href="#如何避免？" class="headerlink" title="如何避免？"></a>如何避免？</h3><ol>
+<li>Only store data together if it is queried together.</li>
+<li>元素數量龐大的 array 不應該被 embed</li>
+</ol>
+<h3 id="範例"><a href="#範例" class="headerlink" title="範例"></a>範例</h3><p>book document 中有大量的 reviews，這是一個 unbounded array 我們不想看到，常用 subset patterns 或 extended reference pattern 處理，實際要 by case 判斷用什麼方式解決</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// books collections</span></span><br><span class="line">[</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">book_id</span>:</span><br><span class="line">    <span class="attr">title</span>:</span><br><span class="line">    <span class="attr">author</span>:</span><br><span class="line">    <span class="attr">publisher</span>:</span><br><span class="line">    <span class="attr">product_type</span>:</span><br><span class="line">    <span class="attr">reviews</span>: [</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="attr">user_id</span>: <span class="number">1</span>,</span><br><span class="line">        <span class="attr">text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">      &#125;,</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="attr">user_id</span>: <span class="number">2</span>,</span><br><span class="line">        <span class="attr">text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">      &#125;,</span><br><span class="line">      ...</span><br><span class="line">    ]</span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    ...</span><br><span class="line">  &#125;</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<h3 id="Solution"><a href="#Solution" class="headerlink" title="Solution"></a>Solution</h3><p><strong>extended reference pattern</strong> (這個 case 不是最佳解)</p>
+<p>會將 book document 的 reviews field 移除並新增一個 reviews collection，並且在每個 review document 內依照實際使用場景加上 query 需要的資訊</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// books collection</span></span><br><span class="line">[</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">book_id</span>:</span><br><span class="line">    <span class="attr">title</span>:</span><br><span class="line">    <span class="attr">author</span>:</span><br><span class="line">    <span class="attr">publisher</span>:</span><br><span class="line">    <span class="attr">product_type</span>:</span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    ...</span><br><span class="line">  &#125;</span><br><span class="line">]</span><br><span class="line"></span><br><span class="line"><span class="comment">// reviews collection</span></span><br><span class="line">[</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">book_id</span>:</span><br><span class="line">    <span class="attr">title</span>:</span><br><span class="line">    <span class="attr">author</span>:</span><br><span class="line">    <span class="attr">publisher</span>:</span><br><span class="line">    <span class="attr">product_type</span>:</span><br><span class="line">    <span class="attr">user_id</span>: <span class="number">1</span>,</span><br><span class="line">    <span class="attr">text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">  &#125;,</span><br><span class="line">    &#123;</span><br><span class="line">    <span class="attr">book_id</span>:</span><br><span class="line">    <span class="attr">title</span>:</span><br><span class="line">    <span class="attr">author</span>:</span><br><span class="line">    <span class="attr">publisher</span>:</span><br><span class="line">    <span class="attr">product_type</span>:</span><br><span class="line">    <span class="attr">user_id</span>: <span class="number">2</span>,</span><br><span class="line">    <span class="attr">text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">  &#125;,</span><br><span class="line">  ...</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<p>因為 review document 含有太多與 book document 重複的 field，所以並不是一個很好的方式</p>
+<p><strong>subset pattern</strong></p>
+<p>將最常用的三個 review 留在 book document 裏，並新增 reviews collection 將所有 review document 放進去，這樣做重複的資料最多也就是每本書裡面最常用的三個 review</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// books collections</span></span><br><span class="line">[</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">book_id</span>:</span><br><span class="line">    <span class="attr">title</span>:</span><br><span class="line">    <span class="attr">author</span>:</span><br><span class="line">    <span class="attr">publisher</span>:</span><br><span class="line">    <span class="attr">product_type</span>:</span><br><span class="line">    <span class="attr">reviews</span>: [</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="attr">user_id</span>: <span class="number">1</span>,</span><br><span class="line">        <span class="attr">text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">      &#125;,</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="attr">user_id</span>: <span class="number">2</span>,</span><br><span class="line">        <span class="attr">text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">      &#125;,</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="attr">user_id</span>: <span class="number">3</span>,</span><br><span class="line">        <span class="attr">text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">      &#125;</span><br><span class="line">    ]</span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    ...</span><br><span class="line">  &#125;</span><br><span class="line">]</span><br><span class="line"></span><br><span class="line"><span class="comment">// reviews collection</span></span><br><span class="line">[</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">book_id</span>:</span><br><span class="line">    <span class="attr">user_id</span>: <span class="number">1</span>,</span><br><span class="line">    <span class="attr">text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">book_id</span>:</span><br><span class="line">    <span class="attr">user_id</span>: <span class="number">2</span>,</span><br><span class="line">    <span class="attr">text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">book_id</span>:</span><br><span class="line">    <span class="attr">user_id</span>: <span class="number">3</span>,</span><br><span class="line">    <span class="attr">text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">book_id</span>:</span><br><span class="line">    <span class="attr">user_id</span>: <span class="number">4</span>,</span><br><span class="line">    <span class="attr">text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">  &#125;,</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<p>因為在原本的 book document 保留了最常用的三筆 review，在取得 review 時也大幅減少 $lookup 或是 multiple query 的場景</p>
+<br />
+
+<h2 id="Bloated-Documents"><a href="#Bloated-Documents" class="headerlink" title="Bloated Documents"></a>Bloated Documents</h2><p>為了遵守黃金守則 <strong>data is accessed together should be stored together</strong>，在初期設計會將整個 document 塞滿必須的資訊，但當產品開始成長且使用場景增加了，容易造成<strong>同一個 document 儲存了可以分開讀取的資料</strong>，而在某些場景拖垮了效能</p>
+<p>以 Book detail collection 舉例來說，在初期只需在 detail 頁面顯示每本書的資訊，但隨著產品發展多了一個需求是在首頁顯示所有書的 summary，也就是只需要顯示 document 中部分 field 的資訊，但現行的架構為了拿首頁需要的資訊需要連同其他資訊一起拿，導致了效能瓶頸</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="comment">// summary 需要的資訊只有 title, author，卻連同其他 field 一起被讀取了</span></span><br><span class="line">  <span class="attr">title</span>:</span><br><span class="line">  <span class="attr">author</span>:</span><br><span class="line">  <span class="attr">genre</span>:</span><br><span class="line">  <span class="attr">year</span>:</span><br><span class="line">  <span class="attr">pages</span>:</span><br><span class="line">  <span class="attr">price</span>:</span><br><span class="line">  <span class="attr">description</span>:</span><br><span class="line">  ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>一個簡單的評估方式是，MongoDB 的預設 storage engine <strong>Wired Tiger</strong> 會將常使用的資料儲存在 memory 中，也就是 Wired Tiger Internal Cache，儲存的資訊包含 documents 和 index 等等，而儲存的上限粗估為 500 MB 上下</p>
+<p>另外配合兩個指令來評估目前使用的 memory size</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// documents 數量</span></span><br><span class="line">db.<span class="property">collection</span>.<span class="title function_">stats</span>().<span class="property">count</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 每個 document 平均大小</span></span><br><span class="line">db.<span class="property">collection</span>.<span class="title function_">stats</span>().<span class="property">avgObjSize</span></span><br></pre></td></tr></table></figure>
+
+<p>兩者相乘，要是超過現有的 memory size，可以考慮兩種解法</p>
+<ol>
+<li>增加 cluster 記憶體</li>
+<li>修改 schema</li>
+</ol>
+<p>為了幫公司省錢成為優質的工程師，從第二點下手，將原本的 detail collection 另外切出一個 summary collection 僅儲存 summary 必要的資訊</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// summary collection</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="attr">title</span>:</span><br><span class="line">  <span class="attr">author</span>:</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>而當首頁讀取 summary 資訊時就只需要從 summary collection 來讀取即可解決效能的問題</p>
+<h2 id="Massive-number-of-collections"><a href="#Massive-number-of-collections" class="headerlink" title="Massive number of collections"></a>Massive number of collections</h2><p>MongoDB 雖然沒有限制 collection 的數量，但超過一定數量依舊會影響效能，這取決於硬體的限制</p>
+<p>MongoDB 的預設儲存引擎 WiredTiger 會將每個 collection 及對應的 index 分開儲存，M10 cluster 的用戶大概儲存 5000 個 collection 就會開始感受到效能阻礙，M20/M30 大概是 10000 個，Sharded Cluster 也大概是 10000 個/shard</p>
+<p>解決方式</p>
+<ol>
+<li>定期刪減 collections</li>
+<li>重新設計 schema 設計的方式</li>
+<li>做 sharding</li>
+</ol>
+<p>定期檢查不常使用的 collection，將它們刪除或是做 archive，而當做完這些事情後 collection 數量依舊太多就要考慮重新思考 schema 設計的方式</p>
+<p>以 book store 舉例來說：想追蹤每本書的觀看次數，將每本書的 view 儲存在各自的 collection 就容易造成 Massive number of collections</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// book1_views collection</span></span><br><span class="line">[</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>:</span><br><span class="line">    <span class="attr">book_id</span>:<span class="number">1</span></span><br><span class="line">    <span class="attr">timestamp</span>:</span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>:</span><br><span class="line">    <span class="attr">book_id</span>:<span class="number">1</span></span><br><span class="line">    <span class="attr">timestamp</span>:</span><br><span class="line">  &#125;,</span><br><span class="line">  ...</span><br><span class="line">]</span><br><span class="line"></span><br><span class="line"><span class="comment">// book2_views collection</span></span><br><span class="line">[</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>:</span><br><span class="line">    <span class="attr">book_id</span>: <span class="number">2</span></span><br><span class="line">    <span class="attr">timestamp</span>:</span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>:</span><br><span class="line">    <span class="attr">book_id</span>: <span class="number">2</span></span><br><span class="line">    <span class="attr">timestamp</span>:</span><br><span class="line">  &#125;,</span><br><span class="line">  ...</span><br><span class="line">]</span><br><span class="line"></span><br><span class="line"><span class="comment">// ...</span></span><br></pre></td></tr></table></figure>
+
+<p>這個 case 來說，會想要修改設計的方式將所有 view 存在同一個 collection 中已降低 collection 數量</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// book_views</span></span><br><span class="line">[</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>:</span><br><span class="line">    <span class="attr">book_id</span>:<span class="number">1</span></span><br><span class="line">    <span class="attr">timestamp</span>:</span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>:</span><br><span class="line">    <span class="attr">book_id</span>:<span class="number">1</span></span><br><span class="line">    <span class="attr">timestamp</span>:</span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>:</span><br><span class="line">    <span class="attr">book_id</span>: <span class="number">2</span></span><br><span class="line">    <span class="attr">timestamp</span>:</span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>:</span><br><span class="line">    <span class="attr">book_id</span>: <span class="number">2</span></span><br><span class="line">    <span class="attr">timestamp</span>:</span><br><span class="line">  &#125;,</span><br><span class="line">  ...</span><br><span class="line">]</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="Unnecessary-Indexes"><a href="#Unnecessary-Indexes" class="headerlink" title="Unnecessary Indexes"></a>Unnecessary Indexes</h2><p>雖然 MongoDB 給每個 collection 最多的 index 數量可以到 64 個，但仍然建議使用越少 index 越好，過多的 index 容易造成效能瓶頸，可以從幾個面向觀察並減少 index 數量</p>
+<ol>
+<li>未使用的 index</li>
+<li>很少用的 index</li>
+<li><strong>被其他 index 涵蓋的 index</strong></li>
+</ol>
+<p>不恰當使用 index 有幾個可能會拖垮效能的地方</p>
+<ol>
+<li>index 被使用時會佔據記憶體用量</li>
+<li>佔據的空間隨著 document 數量增加而變大</li>
+<li>create, update, delete document 時都會需要更新 index</li>
+</ol>
+<p>可以利用 pipeline 檢查目前 collection 中 index 的使用狀態</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">const</span> sortIndexesByAccessOpsPipeline = [</span><br><span class="line">  &#123; <span class="attr">$indexStats</span>: &#123;&#125; &#125;,</span><br><span class="line">  &#123; <span class="attr">$project</span>: </span><br><span class="line">    &#123; </span><br><span class="line">      <span class="attr">_id</span>: <span class="number">0</span>,</span><br><span class="line">      <span class="attr">name</span>: <span class="string">&quot;$name&quot;</span>,</span><br><span class="line">      <span class="attr">ops</span>: <span class="string">&quot;$accesses.ops&quot;</span>, <span class="comment">// 使用次數</span></span><br><span class="line">      <span class="attr">since</span>: <span class="string">&quot;$accesses.since&quot;</span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;,</span><br><span class="line">  &#123; <span class="attr">$sort</span>: &#123; <span class="attr">ops</span>: <span class="number">1</span> &#125; &#125; <span class="comment">// 最少被使用的次數會排最前面</span></span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<p>或在 MongoDB Atlas 中的 Data Explorer 或 Performance Advisor 中觀察 index 的使用狀況。</p>
+<p>而當初 index 在建立時都會有原因，建議在刪除 index 之前先用 <code>hideIndex()</code> 的方式觀察一陣子後再刪除。</p>
+<h2 id="Data-Normalization"><a href="#Data-Normalization" class="headerlink" title="Data Normalization"></a>Data Normalization</h2><p>在規劃 schema 時為了效能或減少資料重複為考量，有時會很直覺的將資料分組並存放在不同處，但有時這樣做會造成經常一起被 query 的資料分散在各處，導致需要多個 query 或必須用 $lookup 在不同資料分組間查詢，反而造成效能瓶頸。</p>
+<p><strong>Data Normalization</strong> 指的就是上述的情況。</p>
+<p>例如一開始在分組時直覺地將 <code>books collection</code> 與 <code>reviews collection</code> 分開存放，但後來發現這些資料通常會一起被 query。與此同時也不可能將 reviews 直接 embed 進 books，因為容易造成 unbounded array。</p>
+<p>經常被考量的解決方案有 subset pattern 或 extended reference pattern</p>
+<h3 id="subset-pattern"><a href="#subset-pattern" class="headerlink" title="subset pattern"></a>subset pattern</h3><p>當每本書一開始僅需要顯示前三筆 review 資訊，就可以將前三筆資訊直接放在 book documents 中</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// books collection</span></span><br><span class="line">[</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">title</span>:</span><br><span class="line">    <span class="attr">author</span>:</span><br><span class="line">    <span class="attr">publisher</span>:</span><br><span class="line">    <span class="attr">product_type</span>:</span><br><span class="line">    <span class="attr">reviews</span>: [</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="attr">user_id</span>:<span class="number">1</span>,</span><br><span class="line">        <span class="attr">review_text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">      &#125;,</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="attr">user_id</span>: <span class="number">2</span>,</span><br><span class="line">        <span class="attr">review_text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">      &#125;,</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="attr">user_id</span>: <span class="number">3</span>,</span><br><span class="line">        <span class="attr">review_text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">      &#125;</span><br><span class="line">    ]</span><br><span class="line">  &#125;</span><br><span class="line">]</span><br><span class="line"></span><br><span class="line"><span class="comment">// reviews collection</span></span><br><span class="line">[</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>:<span class="number">1</span>,</span><br><span class="line">    <span class="attr">review_text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>: <span class="number">2</span>,</span><br><span class="line">    <span class="attr">review_text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>: <span class="number">3</span>,</span><br><span class="line">    <span class="attr">review_text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>: <span class="number">4</span>,</span><br><span class="line">    <span class="attr">review_text</span>: <span class="string">&#x27;...&#x27;</span></span><br><span class="line">  &#125;</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<p>結果是</p>
+<ol>
+<li>依舊能達到將資料分成不同的 collection 來呈現</li>
+<li>造成了部分 review 資料重複在不同的 collection，但不再需要多個 query 或 $lookup 來查找資料</li>
+</ol>
+<p>但也須注意 review 變更時，需要同時更新 books collection 與 reviews collection 裡 review 資訊的策略</p>
+<h3 id="extended-reference-pattern"><a href="#extended-reference-pattern" class="headerlink" title="extended reference pattern"></a>extended reference pattern</h3><p>如果需求改為需要顯示同一本書的所有 review，那麽 extended reference pattern 將會是比較好的選擇</p>
+<p>在每個 review document 內存放部分的 book 資訊</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// reviews collection</span></span><br><span class="line">[</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>:<span class="number">1</span>,</span><br><span class="line">    <span class="attr">review_text</span>: <span class="string">&#x27;...&#x27;</span>,</span><br><span class="line">    <span class="attr">book</span>: &#123;</span><br><span class="line">      <span class="attr">title</span>:</span><br><span class="line">      <span class="attr">author</span>:</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>: <span class="number">2</span>,</span><br><span class="line">    <span class="attr">review_text</span>: <span class="string">&#x27;...&#x27;</span>,</span><br><span class="line">    <span class="attr">book</span>: &#123;</span><br><span class="line">      <span class="attr">title</span>:</span><br><span class="line">      <span class="attr">author</span>:</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>: <span class="number">3</span>,</span><br><span class="line">    <span class="attr">review_text</span>: <span class="string">&#x27;...&#x27;</span>,</span><br><span class="line">    <span class="attr">book</span>: &#123;</span><br><span class="line">      <span class="attr">title</span>:</span><br><span class="line">      <span class="attr">author</span>:</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">user_id</span>: <span class="number">4</span>,</span><br><span class="line">    <span class="attr">review_text</span>: <span class="string">&#x27;...&#x27;</span>,</span><br><span class="line">    <span class="attr">book</span>: &#123;</span><br><span class="line">      <span class="attr">title</span>:</span><br><span class="line">      <span class="attr">author</span>:</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<p>結果也是</p>
+<ol>
+<li>依舊能達到將資料分成不同的 collection 來呈現</li>
+<li>造成了部分 review 資料重複在不同的 collection，但不再需要多個 query 或 $lookup 來查找資料</li>
+</ol>
+<p>而且因為 book title 與 author 的資料幾乎不可能變更，這個場景下反而不用花太多心力考慮同個資料變更時要去更新所有 reference 的策略</p>
+<h2 id="Case-Sensitivity"><a href="#Case-Sensitivity" class="headerlink" title="Case-Sensitivity"></a>Case-Sensitivity</h2><p>MongoDB 的 query 預設是 case sensitive 的，Case-Sensitivity 指的是套用預設設定卻預期 case insensitive，除了會得到非預期的結果也可能影響效能。</p>
+<p>可以利用 Collation 達成 case insensitive。</p>
+<p>Collation 定義了在特定語言中如何比較與排序的規則，需要指定語言 ex: <code>‘en’</code> 以及 strength，strength 預設是 3，這個值只會做 case sensitive 的查詢，想要達成 case insensitive 必須設定為 1 或 2</p>
+<p>來看一下用法</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">db.<span class="property">Books</span>.<span class="title function_">find</span>(&#123; <span class="attr">author</span>: <span class="string">&#x27;Paul Done&#x27;</span> &#125;).<span class="title function_">collation</span>(&#123;<span class="attr">locale</span>: <span class="string">&#x27;en&#x27;</span>, <span class="attr">strength</span>: <span class="number">2</span>&#125;)</span><br></pre></td></tr></table></figure>
+
+<p>在 query 之中指定了 collation，這次的查詢會是不區分大小寫的</p>
+<p>有兩個常見的方法來解決 anti pattern</p>
+<p><code>方法一</code></p>
+<p>指定帶有 collation 設定的 index 並且在 query 時使用相同設定的 collation，例如</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 建立 index</span></span><br><span class="line">db.<span class="property">Books</span>.<span class="title function_">createIndex</span>(</span><br><span class="line">  &#123; <span class="attr">author</span>: <span class="number">1</span> &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">collation</span>: &#123;</span><br><span class="line">      <span class="attr">locale</span>: <span class="string">&#x27;en&#x27;</span>,</span><br><span class="line">      <span class="attr">strength</span>: <span class="number">2</span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 執行相同 collation 設定的 query</span></span><br><span class="line">db.<span class="property">Books</span>.<span class="title function_">find</span>(&#123; <span class="attr">author</span>: <span class="string">&#x27;Paul Done&#x27;</span> &#125;).<span class="title function_">collation</span>(&#123;<span class="attr">locale</span>: <span class="string">&#x27;en&#x27;</span>, <span class="attr">strength</span>: <span class="number">2</span>&#125;)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>不確定目前 index 是否有相同 collation 可以用 <code>db.collection.getIndexes()</code> 方法確認，如果目前的 index 沒有設定 collation 必須 <code>dropIndex()</code> 之後重新建立對應 collation 的 index</p>
+<p><code>方法二</code></p>
+<p>在建立 collection 時指定預設的 collation，此時</p>
+<ol>
+<li>預設會套用在所有的 index 中而不須在建立 index 時額外只定</li>
+<li>所有對於這個 collection 的 query 預設也會使用相同設定的 collation，可以在 query 時另外指定 collation 去覆寫，但不太建議</li>
+</ol>
+<p>但要注意的是一旦 collection 設定好預設值後就無法改變</p>
+<p>有時候也會使用 $regex 搭配 <code>/i</code> option 來做 case insensitive 的查詢，但這麼做效能不好所以不推薦</p>
+<p>如果有更進階的 query 需求可以查詢 MongoDB 的 <code>Atlas Search</code></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MongoDB/" rel="tag"># MongoDB</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/MongoDB/20250408/658645772/" rel="prev" title="MongoDB Advanced Schema Design Pattern - Bucket Pattern">
+                  <i class="fa fa-angle-left"></i> MongoDB Advanced Schema Design Pattern - Bucket Pattern
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/AI/20251209/2734237419/" rel="next" title="Prompt 如何影響 LLM (大型語言模型) 的輸出?">
+                  Prompt 如何影響 LLM (大型語言模型) 的輸出? <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-react fa-brands"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">Glenn Chen</span>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="回到頂端">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"Glenn8119/Glenn8119.github.io","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js" defer></script>
+
+</body>
+</html>

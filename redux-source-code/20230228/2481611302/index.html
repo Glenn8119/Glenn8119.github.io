@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 5.4.2">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.png">
+  <link rel="mask-icon" href="/images/favicon" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"glenote.com","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.26.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"always","padding":18,"offset":12,"width":300},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":false,"style":null},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜尋...","empty":"我們無法找到任何有關 ${query} 的搜索結果","hits_time":"找到 ${hits} 個搜索結果（用時 ${time} 毫秒）","hits":"找到 ${hits} 個搜索結果"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="&amp;emsp;&amp;emsp;這是小弟第一次撰寫原始碼相關的文章，其實看自己使用工具的原始碼其實也不是第一次，在實務上了解某個 API 底層運作也能對工具更加熟悉，但真正完整看完整個專案的經驗還真的沒有過，而選擇 Redux 的原因也是某次打開原始碼才發現哇賽，本以為很複雜的東西原始碼並沒有想像的那麼多，於是就花點時間看完並記錄一下。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="理解 Redux 原始碼（一）- 前言及基本知識">
+<meta property="og:url" content="https://glenote.com/redux-source-code/20230228/2481611302/index.html">
+<meta property="og:site_name" content="Glenn 的網頁開發望遠鏡">
+<meta property="og:description" content="&amp;emsp;&amp;emsp;這是小弟第一次撰寫原始碼相關的文章，其實看自己使用工具的原始碼其實也不是第一次，在實務上了解某個 API 底層運作也能對工具更加熟悉，但真正完整看完整個專案的經驗還真的沒有過，而選擇 Redux 的原因也是某次打開原始碼才發現哇賽，本以為很複雜的東西原始碼並沒有想像的那麼多，於是就花點時間看完並記錄一下。">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://d33wubrfki0l68.cloudfront.net/01cc198232551a7e180f4e9e327b5ab22d9d14e7/b33f4/assets/images/reduxdataflowdiagram-49fa8c3968371d9ef6f2a1486bd40a26.gif">
+<meta property="article:published_time" content="2023-02-28T19:38:55.000Z">
+<meta property="article:modified_time" content="2025-12-16T12:36:02.532Z">
+<meta property="article:tag" content="Redux">
+<meta property="article:tag" content="source code">
+<meta property="article:tag" content="React">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://d33wubrfki0l68.cloudfront.net/01cc198232551a7e180f4e9e327b5ab22d9d14e7/b33f4/assets/images/reduxdataflowdiagram-49fa8c3968371d9ef6f2a1486bd40a26.gif">
+
+
+<link rel="canonical" href="https://glenote.com/redux-source-code/20230228/2481611302/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-TW","comments":true,"permalink":"https://glenote.com/redux-source-code/20230228/2481611302/","path":"redux-source-code/20230228/2481611302/","title":"理解 Redux 原始碼（一）- 前言及基本知識"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>理解 Redux 原始碼（一）- 前言及基本知識 | Glenn 的網頁開發望遠鏡</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切換導航欄" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Glenn 的網頁開發望遠鏡</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Glenn's Web Telescope</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜尋" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首頁</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>關於</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>標籤</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分類</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>歸檔</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目錄
+        </li>
+        <li class="sidebar-nav-overview">
+          本站概要
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9C%80%E5%A5%BD%E5%BF%85%E9%A0%88%E5%85%88%E7%9F%A5%E9%81%93%E2%80%A6"><span class="nav-number">1.</span> <span class="nav-text">最好必須先知道…</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%A3%9C%E5%85%85"><span class="nav-number">2.</span> <span class="nav-text">補充</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt=""
+      src="/images/favicon.png">
+  <p class="site-author-name" itemprop="name"></p>
+  <div class="site-description" itemprop="description">嗨！我是 Glenn，一名充滿好奇心的全端工程師</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">21</span>
+          <span class="site-state-item-name">文章</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分類</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">標籤</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Glenn8119" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;Glenn8119" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:uuu0622@hotmail.com" title="E-Mail → mailto:uuu0622@hotmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/profile.php?id=100002582555256" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;profile.php?id&#x3D;100002582555256" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-TW">
+    <link itemprop="mainEntityOfPage" href="https://glenote.com/redux-source-code/20230228/2481611302/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/favicon.png">
+      <meta itemprop="name" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glenn 的網頁開發望遠鏡">
+      <meta itemprop="description" content="嗨！我是 Glenn，一名充滿好奇心的全端工程師">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="理解 Redux 原始碼（一）- 前言及基本知識 | Glenn 的網頁開發望遠鏡">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          理解 Redux 原始碼（一）- 前言及基本知識
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">發表於</span>
+
+      <time title="創建時間：2023-02-28 19:38:55" itemprop="dateCreated datePublished" datetime="2023-02-28T19:38:55+00:00">2023-02-28</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新於</span>
+      <time title="修改時間：2025-12-16 12:36:02" itemprop="dateModified" datetime="2025-12-16T12:36:02+00:00">2025-12-16</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分類於</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/redux-source-code/" itemprop="url" rel="index"><span itemprop="name">redux-source-code</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="所需閱讀時間">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">所需閱讀時間 &asymp;</span>
+      <span>3 分鐘</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>&emsp;&emsp;這是小弟第一次撰寫原始碼相關的文章，其實看自己使用工具的原始碼其實也不是第一次，在實務上了解某個 API 底層運作也能對工具更加熟悉，但真正完整看完整個專案的經驗還真的沒有過，而選擇 Redux 的原因也是某次打開原始碼才發現哇賽，本以為很複雜的東西原始碼並沒有想像的那麼多，於是就花點時間看完並記錄一下。</p>
+<span id="more"></span>
+
+<p>&emsp;&emsp;Redux 是用來解決狀態多層傳遞造成的難以管理問題，Redux 是其中一個解法但不是唯一解，也可根據專案需求評估要不要使用它，但這裡並不討論使用的場景，單純針對它的原始碼進行探討。</p>
+<h1 id="最好必須先知道…"><a href="#最好必須先知道…" class="headerlink" title="最好必須先知道…"></a>最好必須先知道…</h1><p>&emsp;&emsp;而在真正深入以前得先了解每個 API 的作用，雖然直接看程式碼理解也可以但非常不建議，有個脈絡整個讀下來會更有頭緒，會看這篇文章的你想必已經對 Redux 有一定的了解，不過這邊還是先稍微帶過主要的概念，先上一張 Redux 官方的示意動畫。</p>
+<p><img src="https://d33wubrfki0l68.cloudfront.net/01cc198232551a7e180f4e9e327b5ab22d9d14e7/b33f4/assets/images/reduxdataflowdiagram-49fa8c3968371d9ef6f2a1486bd40a26.gif" alt="https://d33wubrfki0l68.cloudfront.net/01cc198232551a7e180f4e9e327b5ab22d9d14e7/b33f4/assets/images/reduxdataflowdiagram-49fa8c3968371d9ef6f2a1486bd40a26.gif"></p>
+<br>
+<br>
+核心觀念大概是：
+
+<ol>
+<li><code>建立 store</code>，store 包含你需要的 global state 以及其他 redux 的 api 像是 dispatch, subscribe 等等。</li>
+<li>唯一改變 state 的方式是呼叫 <code>store.dispatch</code> 方法，通常會在使用者事件下觸發，例如點擊「存錢」將 state 內的存款更新。</li>
+<li>dispatch 接受一個 action 做為參數，而 action 則是描述目前行為細節的物件，格式像這樣：</li>
+</ol>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&#123; <span class="attr">type</span>: <span class="string">&#x27;DEPOSIT&#x27;</span>, <span class="attr">payload</span>: <span class="number">10</span> &#125;</span><br></pre></td></tr></table></figure>
+
+<p>&emsp;&emsp;而在建立 store 時會傳入一個 <code>reducer function</code>，這時 reducer function 會依據目前的狀態及 action 的內容來判斷要怎麼更新 state</p>
+<ol start="4">
+<li>state 更新後重新渲染 UI<br>
+<br></li>
+</ol>
+<p>&emsp;&emsp;這是一個很簡易的大綱，而第四點重新渲染 UI 的部分事實上也並不在 Redux 內執行，而是要配合其他套件像是 <code>React-Redux</code> 來實現，不過這邊主要重點還是會放在 Redux，有時間可以再來聊聊 React-Redux。</p>
+<br>
+
+<h1 id="補充"><a href="#補充" class="headerlink" title="補充"></a>補充</h1><p>&emsp;&emsp;最後分享一下 Dan 大大在他這篇文章  <strong><a target="_blank" rel="noopener" href="https://medium.com/@dan_abramov/you-might-not-need-redux-be46360cf367">You Might Not Need Redux</a></strong> 裡寫的用 React 模擬 Redux 的行為，描寫的部分包括 action 的格式、reducer 如何藉由 action 判斷要返回的新 state，以及 dispatch 扮演的角色，對於理解 reducer, dispatch, action 整個交互運作非常有幫助。<br><br></p>
+<figure class="highlight jsx"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> <span class="title class_">React</span>, &#123; <span class="title class_">Component</span> &#125; <span class="keyword">from</span> <span class="string">&#x27;react&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// reducer</span></span><br><span class="line"><span class="keyword">const</span> <span class="title function_">counter</span> = (<span class="params">state = &#123; value: <span class="number">0</span> &#125;, action</span>) =&gt; &#123;</span><br><span class="line">  <span class="keyword">switch</span> (action.<span class="property">type</span>) &#123;</span><br><span class="line">    <span class="keyword">case</span> <span class="string">&#x27;INCREMENT&#x27;</span>:</span><br><span class="line">      <span class="keyword">return</span> &#123; <span class="attr">value</span>: state.<span class="property">value</span> + <span class="number">1</span> &#125;;</span><br><span class="line">    <span class="keyword">case</span> <span class="string">&#x27;DECREMENT&#x27;</span>:</span><br><span class="line">      <span class="keyword">return</span> &#123; <span class="attr">value</span>: state.<span class="property">value</span> - <span class="number">1</span> &#125;;</span><br><span class="line">    <span class="attr">default</span>:</span><br><span class="line">      <span class="keyword">return</span> state;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">Counter</span> <span class="keyword">extends</span> <span class="title class_ inherited__">Component</span> &#123;</span><br><span class="line">  state = <span class="title function_">counter</span>(<span class="literal">undefined</span>, &#123;&#125;);</span><br><span class="line">  </span><br><span class="line">  <span class="title function_">dispatch</span>(<span class="params">action</span>) &#123;</span><br><span class="line">    <span class="variable language_">this</span>.<span class="title function_">setState</span>(<span class="function"><span class="params">prevState</span> =&gt;</span> <span class="title function_">counter</span>(prevState, action));</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  increment = <span class="function">() =&gt;</span> &#123;</span><br><span class="line">    <span class="variable language_">this</span>.<span class="title function_">dispatch</span>(&#123; <span class="attr">type</span>: <span class="string">&#x27;INCREMENT&#x27;</span> &#125;);</span><br><span class="line">  &#125;;</span><br><span class="line"></span><br><span class="line">  decrement = <span class="function">() =&gt;</span> &#123;</span><br><span class="line">    <span class="variable language_">this</span>.<span class="title function_">dispatch</span>(&#123; <span class="attr">type</span>: <span class="string">&#x27;DECREMENT&#x27;</span> &#125;);</span><br><span class="line">  &#125;;</span><br><span class="line">  </span><br><span class="line">  <span class="title function_">render</span>(<span class="params"></span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> (</span><br><span class="line">      <span class="language-xml"><span class="tag">&lt;<span class="name">div</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">        &#123;this.state.value&#125;</span></span><br><span class="line"><span class="language-xml">        <span class="tag">&lt;<span class="name">button</span> <span class="attr">onClick</span>=<span class="string">&#123;this.increment&#125;</span>&gt;</span>+<span class="tag">&lt;/<span class="name">button</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">        <span class="tag">&lt;<span class="name">button</span> <span class="attr">onClick</span>=<span class="string">&#123;this.decrement&#125;</span>&gt;</span>-<span class="tag">&lt;/<span class="name">button</span>&gt;</span></span></span><br><span class="line"><span class="language-xml">      <span class="tag">&lt;/<span class="name">div</span>&gt;</span></span></span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<br>
+<br>
+參考文獻
+
+<p><a target="_blank" rel="noopener" href="https://redux.js.org/">Redux 官方文件</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Redux/" rel="tag"># Redux</a>
+              <a href="/tags/source-code/" rel="tag"># source code</a>
+              <a href="/tags/React/" rel="tag"># React</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+            </div>
+            <div class="post-nav-item">
+                <a href="/redux-source-code/20230301/230517463/" rel="next" title="理解 Redux 原始碼（二）- createStore">
+                  理解 Redux 原始碼（二）- createStore <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2025</span>
+    <span class="with-love">
+      <i class="fa fa-react fa-brands"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">Glenn Chen</span>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="回到頂端">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"Glenn8119/Glenn8119.github.io","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js" defer></script>
+
+</body>
+</html>
